@@ -10,125 +10,149 @@ datasource db {
 }
 
 model User {
-  id              Int                 @id @default(autoincrement())
-  username        String              @unique
-  password        String
-  email           String              @unique
-  phone           String?
-  bio             String?
-  expired_otp     String?
-  address         String?             @db.Text
-  thumbnail       String?
-  description     Json?
-  is_edit         Boolean?
-  notifications   Notification[]
-  events          Event[]
-  warningLetters  WarningLetter[]
-  userRoles       UserRole[]
-  userInstitutions UserInstitution[]
-  attendances     Attendance[]
-  blackLists      BlackList[]
+  id                 Int                 @id @default(autoincrement())
+  username           String              @unique
+  password           String
+  email              String              @unique
+  phone              String?
+  date_of_birth      DateTime            @db.Date
+  expired_otp        String?
+  address            String?             @db.Text
+  thumbnail          String?
+  description        Json?
+  is_edit            Boolean?
+  notifications      Notification[]
+  events             Event[]
+  warningLetters     WarningLetter[]
+  userRoles          UserRole[]
+  userInstitutions   UserInstitution[]
+  attendances        Attendance[]
+  blackLists         BlackList[]
   permissionRequests PermissionRequest[]
+
+  @@map("users")
 }
 
 model Event {
-  id          Int      @id @default(autoincrement())
-  user_id     Int
-  title       String
-  messages    String   @db.Text
-  is_active   Boolean
-  user        User     @relation(fields: [user_id], references: [id])
+  id        Int     @id @default(autoincrement())
+  user_id   Int
+  title     String
+  messages  String  @db.Text
+  is_active Boolean
+  user      User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("events")
 }
 
 model WarningLetter {
-  id          Int      @id @default(autoincrement())
-  sender_id   Int
-  user_id     Int
-  title       String
-  message     String
-  user        User     @relation(fields: [user_id], references: [id])
+  id        Int    @id @default(autoincrement())
+  sender_id Int
+  user_id   Int
+  title     String
+  message   String
+  user      User   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("warning_letters")
 }
 
 model Notification {
-  id          Int      @id @default(autoincrement())
-  user_id     Int
-  title       String
-  message     String   @db.Text
-  routes      String
-  is_read     Boolean
-  user        User     @relation(fields: [user_id], references: [id])
+  id      Int     @id @default(autoincrement())
+  user_id Int
+  title   String
+  message String  @db.Text
+  routes  String
+  is_read Boolean
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("notifications")
 }
 
 model Holiday {
-  id          Int      @id @default(autoincrement())
-  event       String
-  start_date  DateTime
-  end_date    DateTime
+  id         Int      @id @default(autoincrement())
+  event      String
+  start_date DateTime
+  end_date   DateTime
+
+  @@map("holidays")
 }
 
 model Role {
-  id          Int        @id @default(autoincrement())
-  name        String
-  userRoles   UserRole[]
+  id        Int        @id @default(autoincrement())
+  name      String
+  userRoles UserRole[]
+
+  @@map("roles")
 }
 
 model UserRole {
-  id          Int      @id @default(autoincrement())
-  user_id     Int
-  role_id     Int
-  user        User     @relation(fields: [user_id], references: [id])
-  role        Role     @relation(fields: [role_id], references: [id])
+  id      Int  @id @default(autoincrement())
+  user_id Int
+  role_id Int
+  user    User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role    Role @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("user_roles")
 }
 
 model Institution {
-  id              Int               @id @default(autoincrement())
-  name            String
-  lat             String
-  long            String
-  phone           String
-  email           String
-  address         String           @db.Text
+  id               Int               @id @default(autoincrement())
+  name             String
+  lat              String
+  long             String
+  phone            String
+  email            String
+  address          String            @db.Text
   userInstitutions UserInstitution[]
-  operatingHours  OperatingHours[]
+  operatingHours   OperatingHours[]
+
+  @@map("institutions")
 }
 
 model UserInstitution {
-  id              Int         @id @default(autoincrement())
-  user_id         Int
-  institution_id  Int
-  user            User        @relation(fields: [user_id], references: [id])
-  institution     Institution @relation(fields: [institution_id], references: [id])
+  id             Int         @id @default(autoincrement())
+  user_id        Int
+  institution_id Int
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("user_institutions")
 }
 
 model OperatingHours {
-  id              Int         @id @default(autoincrement())
-  start_time      DateTime    @db.Time()
-  end_time        DateTime    @db.Time()
-  status          Boolean
-  institution_id  Int
-  institution     Institution @relation(fields: [institution_id], references: [id])
+  id             Int         @id @default(autoincrement())
+  start_time     DateTime    @db.Time()
+  end_time       DateTime    @db.Time()
+  status         Boolean
+  institution_id Int
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("operating_hours")
 }
 
 model BlackList {
-  id          Int      @id @default(autoincrement())
-  user_id     Int
-  reason      String   @db.Text
-  start_date  DateTime
-  end_date    DateTime
-  user        User     @relation(fields: [user_id], references: [id])
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  reason     String   @db.Text
+  start_date DateTime
+  end_date   DateTime
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("black_lists")
 }
 
 model Attendance {
-  id              Int       @id @default(autoincrement())
-  user_places     Int
-  user_id         Int
-  check_in        DateTime?
-  check_out       DateTime?
-  type            String
-  images          String
-  lat             String
-  long            String
-  user            User      @relation(fields: [user_id], references: [id])
+  id          Int       @id @default(autoincrement())
+  user_places Int
+  user_id     Int
+  check_in    DateTime?
+  check_out   DateTime?
+  type        String
+  images      String
+  lat         String
+  long        String
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("attendances")
 }
 
 enum Status {
@@ -146,15 +170,17 @@ enum SicknessLeavePermission {
 }
 
 model PermissionRequest {
-  id          Int                     @id @default(autoincrement())
-  user_id     Int
-  title       String
-  desc        String                  @db.Text
-  type        SicknessLeavePermission
-  start_date  DateTime                @db.Date
-  end_date    DateTime                @db.Date
-  file        String?
-  reason      String?                 @db.Text
-  status      Status
-  user        User                    @relation(fields: [user_id], references: [id])
+  id         Int                     @id @default(autoincrement())
+  user_id    Int
+  title      String
+  desc       String                  @db.Text
+  type       SicknessLeavePermission
+  start_date DateTime                @db.Date
+  end_date   DateTime                @db.Date
+  file       String?
+  reason     String?                 @db.Text
+  status     Status
+  user       User                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("permission_requests")
 }
