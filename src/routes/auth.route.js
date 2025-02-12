@@ -12,6 +12,7 @@ router.patch('/update-description/:id', authorize(['Administrator', 'Kepala Pega
 router.patch('/update-profile/:id', authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.updateProfileController);
 router.patch('/update-thumbnail/:id', multer.uploadImage().single('thumbnail'), authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.updateThumbnailController);
 router.get('/profile/:id', authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.getMeController);
+router.post('/forgot-password', authController.forgotPasswordController);
 router.post('/refresh-token', authController.refreshTokenController);
    
 module.exports = router;

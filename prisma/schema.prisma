@@ -1,5 +1,3 @@
-// This is your Prisma schema file
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -95,6 +93,7 @@ model Institution {
   userInstitutions UserInstitution[]
   operatingHours   OperatingHours[]
   Holiday          Holiday[]
+  Attendance       Attendance[]
 
   @@map("institutions")
 }
@@ -133,16 +132,17 @@ model BlackList {
 }
 
 model Attendance {
-  id          Int       @id @default(autoincrement())
-  user_places Int
-  user_id     Int
-  check_in    DateTime?
-  check_out   DateTime?
-  type        String
-  images      String
-  lat         String
-  long        String
-  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id             Int         @id @default(autoincrement())
+  institution_id Int
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user_id        Int
+  check_in       DateTime?
+  check_out      DateTime?
+  type           String
+  images         String
+  lat            String
+  long           String
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("attendances")
 }
@@ -171,7 +171,7 @@ model PermissionRequest {
   end_date   DateTime                @db.Date
   file       String?
   reason     String?                 @db.Text
-  status     Status
+  status     Status                  @default(Pending)
   user       User                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("permission_requests")

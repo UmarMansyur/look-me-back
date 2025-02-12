@@ -102,6 +102,25 @@ const refreshTokenController = async (req, res, next) => {
   }
 };
 
+const forgotPasswordController = async (req, res, next) => {
+  try {
+    const data = await forgotPassword(req);
+    return success(res, data, "Berhasil mengirim email reset password!", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+const resetPasswordController = async (req, res, next) => {
+  try {
+    const data = await resetPassword(req);
+    return success(res, data, "Berhasil mereset password!", 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 module.exports = {
   loginController,
   registerController,
@@ -112,5 +131,7 @@ module.exports = {
   updateProfileController,
   updateThumbnailController,
   getMeController,
-  refreshTokenController
+  refreshTokenController,
+  forgotPasswordController,
+  resetPasswordController,
 };

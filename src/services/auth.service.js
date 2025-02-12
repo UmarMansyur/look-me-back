@@ -4,6 +4,7 @@ const { loginSchema, updateSchema } = require("../utils/definition.types");
 const bcrypt = require("bcrypt");
 const { deleteFile, uploadFile } = require("../utils/imageKit");
 const { generateToken, decodeToken } = require("../utils/jwt");
+const { sendMail } = require("../utils/nodemailer");
 
 const login = async (req) => {
   const { username, password } = req.body;
@@ -34,7 +35,7 @@ const login = async (req) => {
   const today = new Date();
   const startOfDay = new Date(today.setHours(0, 0, 0, 0));
   const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-  
+
   const existingBlackList = await prisma.blackList.findFirst({
     where: {
       user_id: existingUser.id,
@@ -48,7 +49,9 @@ const login = async (req) => {
   });
 
   if (existingBlackList) {
-    return unauthorized("Anda tidak dapat masuk ke sistem, karena akun anda telah diblokir oleh administrator!");
+    return unauthorized(
+      "Anda tidak dapat masuk ke sistem, karena akun anda telah diblokir oleh administrator!"
+    );
   }
 
   const isValidPassword = await bcrypt.compare(password, existingUser.password);
@@ -338,6 +341,57 @@ const updateDescription = async (req) => {
   return data;
 };
 
+const forgotPassword = async (req) => {
+  const { email } = req.body;
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      email,
+    },
+  });
+
+  if (!existingUser) {
+    return unauthorized("User tidak ditemukan!");
+  }
+
+  const token = generateToken({ id: existingUser.id }, "access", "1h");
+
+  await sendMail(
+    email,
+    "Reset Password",
+    `Silahkan klik link berikut untuk mereset password anda: <br>
+    <a href="${process.env.FRONTEND_URL}/reset-password?token=${token}">Reset Password</a>
+    <br>
+    Jika anda tidak merasa melakukan permintaan ini, abaikan email ini!
+    `
+  );
+
+  return [];
+};
+
+const resetPassword = async (req) => {
+  const { token, password } = req.body;
+  const payload = decodeToken(token, "access");
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const data = await prisma.user.update({
+    where: {
+      id: payload.id,
+    },
+    data: {
+      password: hashedPassword,
+    },
+  });
+
+  await sendMail(
+    email,
+    "Reset Password",
+    `Password anda berhasil direset!`
+  );
+
+  return data;
+};
+
 const deleteUser = async (req) => {
   const { id } = req.params;
   const me = req.user;
@@ -413,4 +467,6 @@ module.exports = {
   updateThumbnail,
   getMe,
   refreshToken,
+  forgotPassword,
+  resetPassword,
 };
