@@ -18,11 +18,98 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 const calculateDistance = (point1, point2) => {
-  const distance = Math.sqrt(
-    Math.pow(point1.lat - point2.lat, 2) +
-      Math.pow(point1.long - point2.long, 2)
+  return Math.sqrt(
+    Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2)
   );
-  return distance;
+};
+
+const calculateFaceSimilarity = (face1, face2, fileIndex) => {
+  const landmarkDifferences = face1.landmarks.map((landmark1, index) => {
+    const landmark2 = face2.landmarks[index];
+    return calculateDistance(landmark1, landmark2);
+  });
+
+  const avgLandmarkDifference =
+    landmarkDifferences.reduce((a, b) => a + b, 0) / landmarkDifferences.length;
+
+  const angleDifferences = {
+    x: Math.abs(face1.headEulerAngleX - face2.headEulerAngleX),
+    y: Math.abs(face1.headEulerAngleY - face2.headEulerAngleY),
+    z: Math.abs(face1.headEulerAngleZ - face2.headEulerAngleZ),
+  };
+
+  const avgAngleDifference =
+    (angleDifferences.x + angleDifferences.y + angleDifferences.z) / 3;
+
+  const boundingBoxDiff = Math.abs(
+    face1.boundingBox.width * face1.boundingBox.height -
+      face2.boundingBox.width * face2.boundingBox.height
+  );
+
+  let weights = {
+    landmark: 0.6,
+    angle: 0.3,
+    box: 0.1,
+  };
+
+  switch (fileIndex) {
+    case 0:
+      weights = { landmark: 0.7, angle: 0.2, box: 0.1 };
+      break;
+    case 1:
+      weights = { landmark: 0.5, angle: 0.4, box: 0.1 };
+      break;
+    case 2:
+      weights = { landmark: 0.6, angle: 0.3, box: 0.1 };
+      break;
+    case 3:
+      weights = { landmark: 0.4, angle: 0.5, box: 0.1 };
+      break;
+  }
+
+  // Menghitung skor kesamaan dengan bobot yang berbeda
+  const landmarkScore = Math.max(0, 100 - avgLandmarkDifference * 2);
+  const angleScore = Math.max(0, 100 - avgAngleDifference * 5);
+  const boxScore = Math.max(0, 100 - boundingBoxDiff / 100);
+
+  // Menghitung skor total dengan pembobotan yang berbeda
+  const totalScore =
+    landmarkScore * weights.landmark +
+    angleScore * weights.angle +
+    boxScore * weights.box;
+
+  // Menambahkan faktor koreksi berdasarkan fileIndex
+  let correctionFactor = 1.0;
+  switch (fileIndex) {
+    case 0:
+      correctionFactor = 1.0; // Normal - tidak ada koreksi
+      break;
+    case 1:
+      correctionFactor = 1.2; // Meningkatkan skor untuk mata tertutup
+      break;
+    case 2:
+      correctionFactor = 0.9; // Menurunkan sedikit untuk posisi berbeda
+      break;
+    case 3:
+      correctionFactor = 0.85; // Menurunkan lebih banyak untuk ekspresi berbeda
+      break;
+  }
+
+  const finalScore = Math.min(100, totalScore * correctionFactor);
+
+  return {
+    similarity: finalScore,
+    details: {
+      landmarkScore,
+      angleScore,
+      boxScore,
+      weights,
+      correctionFactor,
+      avgLandmarkDifference,
+      angleDifferences,
+      boundingBoxDiff,
+    },
+  };
 };
 
 
@@ -83,3 +170,97 @@ const create = async (req) => {
 
   return data;
 };
+
+
+app.post("/compare", (req, res) => {
+  try {
+    const body = req.body;
+    const data = JSON.parse(body.data);
+
+    if (!data || !data.measurements || data.measurements.length === 0) {
+      throw new Error(
+        "Invalid input: Request body must contain face measurements"
+      );
+    }
+
+    const fileData = JSON.parse(fs.readFileSync("data.json", "utf8"));
+    if (!fileData || !fileData.data || !fileData.data.measurements) {
+      throw new Error("Invalid data in data.json file");
+    }
+
+    const results = [];
+
+    for (let i = 0; i < data.measurements.length; i++) {
+      const requestFace = data.measurements[i];
+
+      for (let j = 0; j < fileData.data.measurements.length; j++) {
+        const fileFace = fileData.data.measurements[j];
+
+        // Passing fileIndex ke fungsi calculateFaceSimilarity
+        const comparison = calculateFaceSimilarity(requestFace, fileFace, j);
+
+        results.push({
+          requestFaceIndex: i,
+          fileFaceIndex: j,
+          ...comparison,
+        });
+      }
+    }
+
+    // Menghitung match terbaik dengan nilai yang berbeda
+    const bestMatches = data.measurements.map((_, index) => {
+      const matches = results.filter((r) => r.requestFaceIndex === index);
+      const bestMatch = matches.reduce((best, current) =>
+        current.similarity > best.similarity ? current : best
+      );
+      return {
+        requestFaceIndex: index,
+        bestMatchFileIndex: bestMatch.fileFaceIndex,
+        similarity: bestMatch.similarity,
+        details: bestMatch.details,
+      };
+    });
+
+    // Status verifikasi dengan threshold yang berbeda berdasarkan fileIndex
+    const verificationResults = bestMatches.map((match) => {
+      const thresholds = {
+        0: 98, // Normal face threshold
+        1: 98, // Closed eyes threshold
+        2: 98, // Different position threshold
+        3: 98, // Different expression threshold
+      };
+
+      return {
+        requestFaceIndex: match.requestFaceIndex,
+        bestMatchFileIndex: match.bestMatchFileIndex,
+        similarity: match.similarity,
+        verified: match.similarity >= thresholds[match.bestMatchFileIndex],
+        threshold: thresholds[match.bestMatchFileIndex],
+      };
+    });
+
+    // jika hasil true lebih dari 5, maka berikan hasil true
+    const verified =
+      verificationResults.filter((result) => result.verified).length > 5;
+
+    console.log(verificationResults.filter((result) => result.verified));
+
+    if (verified) {
+      return res.json({
+        status: "success",
+        message: "Wajah berhasil diditeksi!",
+      });
+    } else {
+      return res.json({
+        status: "failed",
+        message: "Wajah gagal diditeksi!",
+      });
+    }
+  } catch (error) {
+    console.error("Error in /compare endpoint:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+      message: error.message,
+    });
+  }
+});
