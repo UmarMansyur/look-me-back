@@ -6,6 +6,7 @@ const institutionController = require('./institution.controller');
 const blacklistController = require('./blacklist.controller');
 const permissionRequestController = require('./permission_request.controller');
 const warningLetterController = require('./warning_letter.controller');
+const attendanceController = require('./attendance.controller');
 
 module.exports = {
     authController,
@@ -15,5 +16,6 @@ module.exports = {
     institutionController,
     blacklistController,
     permissionRequestController,
-    warningLetterController
+    warningLetterController,
+    attendanceController
 };

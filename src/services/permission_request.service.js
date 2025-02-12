@@ -26,6 +26,9 @@ const create = async (req) => {
           gte: new Date(new Date(end_date).setHours(0, 0, 0, 0)),
         },
       },
+      status: {
+        notIn: [Status.Approved, Status.Revised],
+      },
     },
   });
 
@@ -112,21 +115,46 @@ const updateStatus = async (req) => {
     },
   });
 
-  if(!existingPermissionRequest) {
+  if (!existingPermissionRequest) {
     return badRequest("Data tidak ditemukan!");
   }
 
-  const response = await prisma.permissionRequest.update({  
-    where: {
-      id: Number(id),
-    },
-    data: {
-      status,
-      reason,
-    },
+  if (existingPermissionRequest.status === Status.Approved) {
+    return badRequest("Permintaan izin sudah disetujui!");
+  }
+
+  if (existingPermissionRequest.status === Status.Rejected) {
+    return badRequest("Permintaan izin sudah ditolak!");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const response = await tx.permissionRequest.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        status,
+        reason,
+      },
+    });
+
+    if (status === Status.Approved) {
+      await tx.attendance.create({
+        data: {
+          user_id: existingPermissionRequest.user_id,
+          institution_id: existingPermissionRequest.institution_id,
+          type: existingPermissionRequest.type,
+          images: "",
+          lat: "",
+          long: "",
+        },
+      });
+    }
+
+    return response;
   });
 
-  return response;
+  return result;
 };
 
 const getAll = async (req) => {

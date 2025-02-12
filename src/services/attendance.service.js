@@ -112,10 +112,9 @@ const calculateFaceSimilarity = (face1, face2, fileIndex) => {
   };
 };
 
-
 const create = async (req) => {
   const { id } = req.user;
-  const { lat, long } = req.body;
+  const { lat, long, data } = req.body;
   const file = req.file;
 
   const existingUser = await prisma.user.findFirst({
@@ -134,6 +133,12 @@ const create = async (req) => {
   if (!existingUser) {
     return badRequest("User tidak ditemukan!");
   }
+
+  if (!data || !data.measurements || data.measurements.length === 0) {
+    return badRequest("Data tidak boleh kosong!");
+  }
+
+  const fileData = JSON.parse(existingUser.description);
 
   const distance = getDistance(
     existingUser.userInstitutions[0].institution.lat,
@@ -159,108 +164,130 @@ const create = async (req) => {
     return badRequest("Anda sudah melakukan absensi hari ini!");
   }
 
-  const data = await prisma.attendance.create({
+  const results = [];
+
+  for (let i = 0; i < data.measurements.length; i++) {
+    const requestFace = data.measurements[i];
+
+    for (let j = 0; j < fileData.data.measurements.length; j++) {
+      const fileFace = fileData.data.measurements[j];
+      const comparison = calculateFaceSimilarity(requestFace, fileFace, j);
+      results.push({
+        requestFaceIndex: i,
+        fileFaceIndex: j,
+        ...comparison,
+      });
+    }
+  }
+
+  const bestMatches = data.measurements.map((_, index) => {
+    const matches = results.filter((r) => r.requestFaceIndex === index);
+    const bestMatch = matches.reduce((best, current) =>
+      current.similarity > best.similarity ? current : best
+    );
+    return {
+      requestFaceIndex: index,
+      bestMatchFileIndex: bestMatch.fileFaceIndex,
+      similarity: bestMatch.similarity,
+      details: bestMatch.details,
+    };
+  });
+
+  const verificationResults = bestMatches.map((match) => {
+    const thresholds = {
+      0: 98,
+      1: 98,
+      2: 98,
+      3: 98,
+    };
+
+    return {
+      requestFaceIndex: match.requestFaceIndex,
+      bestMatchFileIndex: match.bestMatchFileIndex,
+      similarity: match.similarity,
+      verified: match.similarity >= thresholds[match.bestMatchFileIndex],
+      threshold: thresholds[match.bestMatchFileIndex],
+    };
+  });
+
+  const verified =
+    verificationResults.filter((result) => result.verified).length >= 4;
+
+  if (!verified) {
+    return badRequest(
+      "Gagal melakukan absensi, pengenalan wajah tidak sesuai, Silahkan coba lagi!"
+    );
+  }
+
+  const previousAttendance = await prisma.attendance.findFirst({
+    where: {
+      user_id: Number(id),
+      created_at: {
+        gte: new Date(new Date().setHours(0, 0, 0, 0)),
+        lt: new Date(),
+      },
+    },
+  });
+
+  if (!previousAttendance) {
+    await prisma.attendance.create({
+      data: {
+        user_id: Number(id),
+        lat,
+        long,
+        type: "Alpa",
+        image: "",
+        institution_id: existingUser.userInstitutions[0].institution_id,
+      },
+    });
+  }
+
+  const attendance = await prisma.attendance.create({
     data: {
       user_id: Number(id),
       lat,
       long,
+      type: "Present",
       image: file.filename,
+    },
+  });
+
+  return attendance;
+};
+
+const getAll = async (req) => {
+  const { id } = req.user;
+  const { page = 1, limit = 10 } = req.query;
+
+  const where = {
+    user_id: Number(id),
+  };
+
+  const data = await paginate(where, page, limit, prisma.attendance, {
+    include: {
+      user: true,
     },
   });
 
   return data;
 };
 
+const getOne = async (req) => {
+  const { id } = req.user;
+  const { id: attendanceId } = req.params;
 
-app.post("/compare", (req, res) => {
-  try {
-    const body = req.body;
-    const data = JSON.parse(body.data);
+  const attendance = await prisma.attendance.findUnique({
+    where: {
+      id: Number(attendanceId),
+      user_id: Number(id),
+    },
+  });
 
-    if (!data || !data.measurements || data.measurements.length === 0) {
-      throw new Error(
-        "Invalid input: Request body must contain face measurements"
-      );
-    }
+  return attendance;
+};
 
-    const fileData = JSON.parse(fs.readFileSync("data.json", "utf8"));
-    if (!fileData || !fileData.data || !fileData.data.measurements) {
-      throw new Error("Invalid data in data.json file");
-    }
-
-    const results = [];
-
-    for (let i = 0; i < data.measurements.length; i++) {
-      const requestFace = data.measurements[i];
-
-      for (let j = 0; j < fileData.data.measurements.length; j++) {
-        const fileFace = fileData.data.measurements[j];
-
-        // Passing fileIndex ke fungsi calculateFaceSimilarity
-        const comparison = calculateFaceSimilarity(requestFace, fileFace, j);
-
-        results.push({
-          requestFaceIndex: i,
-          fileFaceIndex: j,
-          ...comparison,
-        });
-      }
-    }
-
-    // Menghitung match terbaik dengan nilai yang berbeda
-    const bestMatches = data.measurements.map((_, index) => {
-      const matches = results.filter((r) => r.requestFaceIndex === index);
-      const bestMatch = matches.reduce((best, current) =>
-        current.similarity > best.similarity ? current : best
-      );
-      return {
-        requestFaceIndex: index,
-        bestMatchFileIndex: bestMatch.fileFaceIndex,
-        similarity: bestMatch.similarity,
-        details: bestMatch.details,
-      };
-    });
-
-    // Status verifikasi dengan threshold yang berbeda berdasarkan fileIndex
-    const verificationResults = bestMatches.map((match) => {
-      const thresholds = {
-        0: 98, // Normal face threshold
-        1: 98, // Closed eyes threshold
-        2: 98, // Different position threshold
-        3: 98, // Different expression threshold
-      };
-
-      return {
-        requestFaceIndex: match.requestFaceIndex,
-        bestMatchFileIndex: match.bestMatchFileIndex,
-        similarity: match.similarity,
-        verified: match.similarity >= thresholds[match.bestMatchFileIndex],
-        threshold: thresholds[match.bestMatchFileIndex],
-      };
-    });
-
-    // jika hasil true lebih dari 5, maka berikan hasil true
-    const verified =
-      verificationResults.filter((result) => result.verified).length > 5;
-
-    console.log(verificationResults.filter((result) => result.verified));
-
-    if (verified) {
-      return res.json({
-        status: "success",
-        message: "Wajah berhasil diditeksi!",
-      });
-    } else {
-      return res.json({
-        status: "failed",
-        message: "Wajah gagal diditeksi!",
-      });
-    }
-  } catch (error) {
-    console.error("Error in /compare endpoint:", error);
-    return res.status(500).json({
-      error: "Internal server error",
-      message: error.message,
-    });
-  }
-});
+module.exports = {
+  create,
+  getAll,
+  getOne,
+};

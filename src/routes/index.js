@@ -8,5 +8,6 @@ router.use('/institution', require('./institution.route'));
 router.use('/blacklist', require('./blacklist.route'));
 router.use('/permission-request', require('./permission_request.route'));
 router.use('/warning-letter', require('./warning_letter.route'));
+router.use('/attendance', require('./attendance.route'));
 
 module.exports = router;
