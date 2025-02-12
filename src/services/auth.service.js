@@ -20,11 +20,35 @@ const login = async (req) => {
           role: true,
         },
       },
+      userInstitutions: {
+        include: {
+          institution: true,
+        },
+      },
     },
   });
 
   if (!existingUser) {
     return unauthorized("Akun tidak ditemukan!");
+  }
+  const today = new Date();
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+  
+  const existingBlackList = await prisma.blackList.findFirst({
+    where: {
+      user_id: existingUser.id,
+      start_date: {
+        lte: endOfDay,
+      },
+      end_date: {
+        gte: startOfDay,
+      },
+    },
+  });
+
+  if (existingBlackList) {
+    return unauthorized("Anda tidak dapat masuk ke sistem, karena akun anda telah diblokir oleh administrator!");
   }
 
   const isValidPassword = await bcrypt.compare(password, existingUser.password);
@@ -37,6 +61,7 @@ const login = async (req) => {
     id: existingUser.id,
     username: existingUser.username,
     role: existingUser.userRoles[0].role.name,
+    institution: existingUser.userInstitutions[0].institution.name,
   };
 
   return {
@@ -46,8 +71,16 @@ const login = async (req) => {
 };
 
 const register = async (req) => {
-  const { username, password, email, phone, date_of_birth, addres, role } =
-    req.body;
+  const {
+    username,
+    password,
+    email,
+    phone,
+    date_of_birth,
+    addres,
+    role,
+    institution_id,
+  } = req.body;
 
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -100,6 +133,11 @@ const register = async (req) => {
           role_id: existingRole.id,
         },
       },
+      userInstitutions: {
+        create: {
+          institution_id: Number(institution_id),
+        },
+      },
     },
   });
 
@@ -129,14 +167,14 @@ const refreshToken = async (req) => {
     refresh_token: generateToken(payload, "refresh"),
     role: existingUser.userRoles[0].role.name,
   };
-}
+};
 
 const toggleEdit = async (req) => {
   const { id } = req.user;
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -146,7 +184,7 @@ const toggleEdit = async (req) => {
 
   const data = await prisma.user.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       is_edit: !existingUser.is_edit,
@@ -164,7 +202,7 @@ const updateProfile = async (req) => {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -174,7 +212,7 @@ const updateProfile = async (req) => {
 
   const data = await prisma.user.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       username,
@@ -194,7 +232,7 @@ const updateThumbnail = async (req) => {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -210,7 +248,7 @@ const updateThumbnail = async (req) => {
 
   const data = await prisma.user.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       thumbnail: imageUrl,
@@ -226,7 +264,7 @@ const updateAccount = async (req) => {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -260,7 +298,7 @@ const updateAccount = async (req) => {
 
   const data = await prisma.user.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       ...payload,
@@ -276,7 +314,7 @@ const updateDescription = async (req) => {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -290,7 +328,7 @@ const updateDescription = async (req) => {
 
   const data = await prisma.user.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       description,
@@ -306,7 +344,7 @@ const deleteUser = async (req) => {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -333,7 +371,7 @@ const deleteUser = async (req) => {
 
   const data = await prisma.user.delete({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -345,7 +383,7 @@ const getMe = async (req) => {
 
   const data = await prisma.user.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
     include: {
       userRoles: {
@@ -374,5 +412,5 @@ module.exports = {
   deleteUser,
   updateThumbnail,
   getMe,
-  refreshToken
+  refreshToken,
 };

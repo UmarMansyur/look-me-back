@@ -22,7 +22,6 @@ model User {
   description        Json?
   is_edit            Boolean?
   notifications      Notification[]
-  events             Event[]
   warningLetters     WarningLetter[]
   userRoles          UserRole[]
   userInstitutions   UserInstitution[]
@@ -31,17 +30,6 @@ model User {
   permissionRequests PermissionRequest[]
 
   @@map("users")
-}
-
-model Event {
-  id        Int     @id @default(autoincrement())
-  user_id   Int
-  title     String
-  messages  String  @db.Text
-  is_active Boolean
-  user      User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@map("events")
 }
 
 model WarningLetter {
@@ -68,10 +56,12 @@ model Notification {
 }
 
 model Holiday {
-  id         Int      @id @default(autoincrement())
-  event      String
-  start_date DateTime
-  end_date   DateTime
+  id             Int         @id @default(autoincrement())
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  institution_id Int
+  event          String
+  start_date     DateTime
+  end_date       DateTime
 
   @@map("holidays")
 }
@@ -104,6 +94,7 @@ model Institution {
   address          String            @db.Text
   userInstitutions UserInstitution[]
   operatingHours   OperatingHours[]
+  Holiday          Holiday[]
 
   @@map("institutions")
 }
@@ -123,6 +114,7 @@ model OperatingHours {
   start_time     DateTime    @db.Time()
   end_time       DateTime    @db.Time()
   status         Boolean
+  late_tolerance Int
   institution_id Int
   institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
