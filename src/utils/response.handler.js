@@ -7,7 +7,8 @@ const success = (res, data, message = "Success", status = 200) => {
 
 const error = (res, message = "Internal server error", status = 500) => {
   return res.status(status).json({
-    message,
+    code: status,
+    message: message,
   });
 };
 

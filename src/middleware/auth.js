@@ -12,7 +12,7 @@ function authorize(roles = []) {
           return res.status(401).json(new Error("Akses tidak diizinkan!"));
         }
         const bearerToken = token.split(" ")[1];
-        const user = jwt.verify(bearerToken, process.env.JWT_SECRET);
+        const user = jwt.verify(bearerToken, process.env.JWT_SECRET_ACCESS);
         if (roles.length > 0) {
           let valid = '';
           if (typeof user.role === `string`) {
@@ -23,7 +23,9 @@ function authorize(roles = []) {
             }
           }
           if (!valid) {
-            return res.status(401).json(new Error("Akses tidak diizinkan!"));
+            const error = new Error("Akses tidak diizinkan!");
+            error.status = 401;
+            next(error);
           }
         }
 
@@ -31,7 +33,14 @@ function authorize(roles = []) {
         next();
       } catch (error) {
         if (error.message == "jwt malformed") {
-          return res.status(401).json(new Error("Akses tidak diizinkan!"));
+          const error = new Error("Token tidak valid!");
+          error.status = 401;
+          next(error);
+        }
+        if(error.message == "jwt expired") {
+          const error = new Error("Token sudah kadaluarsa!, Jika anda tetap mendapatkan pesan ini, silahkan refresh halaman ini!");
+          error.status = 401;
+          next(error);
         }
         next(error);
       }

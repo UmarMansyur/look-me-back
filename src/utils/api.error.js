@@ -6,19 +6,19 @@ class ApiError extends Error {
   }
 
   static notFound(message) {
-    return new ApiError(404, message);
+    throw new ApiError(404, message);
   }
 
   static internal(message) {
-    return new ApiError(500, message);
+    throw new ApiError(500, message);
   }
 
   static badRequest(message) {
-    return new ApiError(400, message);
+    throw new ApiError(400, message);
   }
 
   static unauthorized(message) {
-    return new ApiError(401, message);
+    throw new ApiError(401, message);
   }
 }
 

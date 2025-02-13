@@ -14,11 +14,12 @@ model User {
   email              String              @unique
   phone              String?
   date_of_birth      DateTime            @db.Date
+  gender             Gender?             @default(Male)
   expired_otp        String?
   address            String?             @db.Text
   thumbnail          String?
   description        Json?
-  is_edit            Boolean?
+  is_edit            Boolean?            @default(false)
   notifications      Notification[]
   warningLetters     WarningLetter[]
   userRoles          UserRole[]
@@ -28,6 +29,11 @@ model User {
   permissionRequests PermissionRequest[]
 
   @@map("users")
+}
+
+enum Gender {
+  Male
+  Female
 }
 
 model WarningLetter {
@@ -90,6 +96,7 @@ model Institution {
   phone            String
   email            String
   address          String            @db.Text
+  logo             String?
   userInstitutions UserInstitution[]
   operatingHours   OperatingHours[]
   Holiday          Holiday[]
@@ -110,8 +117,8 @@ model UserInstitution {
 
 model OperatingHours {
   id             Int         @id @default(autoincrement())
-  start_time     DateTime    @db.Time()
-  end_time       DateTime    @db.Time()
+  start_time     DateTime    
+  end_time       DateTime
   status         Boolean
   late_tolerance Int
   institution_id Int
@@ -139,10 +146,13 @@ model Attendance {
   check_in       DateTime?
   check_out      DateTime?
   type           String
-  images         String
+  images         String?
   lat            String
   long           String
   user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("attendances")
 }

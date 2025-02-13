@@ -8,6 +8,11 @@ const {
   updateProfile,
   updateThumbnail,
   getMe,
+  forgotPassword,
+  refreshToken,
+  resetPassword,
+  getAllUser,
+  getOne,
 } = require("../services/auth.service");
 
 const { success } = require("../utils/response.handler");
@@ -42,7 +47,8 @@ const deleteUserController = async (req, res, next) => {
 const toggleEditController = async (req, res, next) => {
   try {
     const data = await toggleEdit(req);
-    return success(res, data, "Berhasil mengubah status edit pengguna!", 200);
+    const message = data.is_edit === true ? "Berhasil mengizinkan pengguna untuk mengubah data wajah!" : "Berhasil menghapus izin pengguna untuk mengubah data wajah!";
+    return success(res, data, message, 200);
   } catch (error) {
     next(error);
   }
@@ -120,7 +126,23 @@ const resetPasswordController = async (req, res, next) => {
   }
 }
 
+const getAllUserController = async (req, res, next) => {
+  try {
+    const data = await getAllUser(req);
+    return success(res, data, "Berhasil mendapatkan semua pengguna!", 200);
+  } catch (error) {
+    next(error);
+  }
+}
 
+const getOneUserController = async (req, res, next) => {
+  try {
+    const data = await getOne(req);
+    return success(res, data, "Berhasil mendapatkan pengguna!", 200);
+  } catch (error) {
+    next(error);
+  }
+}
 module.exports = {
   loginController,
   registerController,
@@ -134,4 +156,6 @@ module.exports = {
   refreshTokenController,
   forgotPasswordController,
   resetPasswordController,
+  getAllUserController,
+  getOneUserController,
 };

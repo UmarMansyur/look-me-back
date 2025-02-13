@@ -1,16 +1,14 @@
 const { unauthorized, badRequest } = require("../utils/api.error");
 const prisma = require("../utils/db");
-const { loginSchema, updateSchema } = require("../utils/definition.types");
 const bcrypt = require("bcrypt");
 const { deleteFile, uploadFile } = require("../utils/imageKit");
 const { generateToken, decodeToken } = require("../utils/jwt");
 const { sendMail } = require("../utils/nodemailer");
+const { paginate } = require("../utils/pagination");
 
 const login = async (req) => {
   const { username, password } = req.body;
-
-  loginSchema.parse({ username, password });
-
+  
   const existingUser = await prisma.user.findFirst({
     where: {
       username,
@@ -80,8 +78,9 @@ const register = async (req) => {
     email,
     phone,
     date_of_birth,
-    addres,
-    role,
+    address,
+    gender,
+    role_id,
     institution_id,
   } = req.body;
 
@@ -107,7 +106,7 @@ const register = async (req) => {
 
   const existingRole = await prisma.role.findFirst({
     where: {
-      role,
+      id: Number(role_id),
     },
   });
 
@@ -129,11 +128,12 @@ const register = async (req) => {
       email,
       phone,
       date_of_birth: new Date(date_of_birth),
-      addres,
+      address: address === null ? undefined : address,
       thumbnail: imageUrl === null ? undefined : imageUrl,
+      gender,
       userRoles: {
         create: {
-          role_id: existingRole.id,
+          role_id: Number(role_id),
         },
       },
       userInstitutions: {
@@ -154,7 +154,7 @@ const refreshToken = async (req) => {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      token_refresh,
+      id: payload.id,
     },
     include: {
       userRoles: {
@@ -164,6 +164,9 @@ const refreshToken = async (req) => {
       },
     },
   });
+
+  delete payload.iat;
+  delete payload.exp;
 
   return {
     access_token: generateToken(payload, "access"),
@@ -198,19 +201,38 @@ const toggleEdit = async (req) => {
 };
 
 const updateProfile = async (req) => {
-  const { id } = req.user;
-  const { username, email, phone, date_of_birth, addres } = req.body;
-
-  updateSchema.parse({ username, email, phone, date_of_birth, addres });
+  
+  const { id, username, email, phone, date_of_birth, address, gender, role_id, institution_id } = req.body;
 
   const existingUser = await prisma.user.findFirst({
     where: {
       id: Number(id),
     },
+    include: {
+      userRoles: {
+        include: {
+          role: true,
+        },
+      },
+      userInstitutions: {
+        include: {
+          institution: true,
+        },
+      },
+    },
   });
 
   if (!existingUser) {
     return unauthorized("User tidak ditemukan!");
+  }
+
+  const file = req.file;
+  let imageUrl = undefined;
+  if (file) {
+    if(existingUser.thumbnail !== null || existingUser.thumbnail !== "") {
+      await deleteFile(existingUser.thumbnail);
+    }
+    imageUrl = await uploadFile(file);
   }
 
   const data = await prisma.user.update({
@@ -222,7 +244,29 @@ const updateProfile = async (req) => {
       email,
       phone,
       date_of_birth: new Date(date_of_birth),
-      addres,
+      gender,
+      address: address === null ? undefined : address,
+      thumbnail: imageUrl,
+    },
+  });
+
+  await prisma.userRole.updateMany({
+    where: {
+      user_id: Number(id),
+      role_id: existingUser.userRoles[0].role_id,
+    },
+    data: {
+      role_id: Number(role_id),
+    },
+  });
+
+  await prisma.userInstitution.updateMany({
+    where: {
+      user_id: Number(id),
+      institution_id: existingUser.userInstitutions[0].institution_id,
+    },
+    data: {
+      institution_id: Number(institution_id),
     },
   });
 
@@ -262,8 +306,7 @@ const updateThumbnail = async (req) => {
 };
 
 const updateAccount = async (req) => {
-  const { id } = req.user;
-  const { password, username } = req.body;
+  const { id, password, username } = req.body;
 
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -419,7 +462,7 @@ const deleteUser = async (req) => {
     },
   });
 
-  if (roleUser.role !== "Administrator") {
+  if (roleUser.role.name !== "Administrator") {
     return unauthorized("Anda tidak memiliki akses untuk menghapus akun!");
   }
 
@@ -428,6 +471,76 @@ const deleteUser = async (req) => {
       id: Number(id),
     },
   });
+
+  return data;
+};
+
+const getAllUser = async (req) => {
+  const { page = 1, limit = 10, search = ""} = req.query;
+  const where = {};
+
+  if(search) {
+    where.OR = [
+      {
+        username: {
+          contains: search
+        },
+      },
+      {
+        email: {
+          contains: search
+        },
+      },
+      {
+        phone: {
+          contains: search
+        },
+      },
+    ];
+  }
+
+  const include = {
+    userRoles: {
+      include: {
+        role: true,
+      },
+    },
+    userInstitutions: {
+      include: {
+        institution: true,
+      },
+    },
+  };
+
+  const data = await paginate(where, page, limit, 'user', include)
+
+  return data;
+};
+
+const getOne = async (req) => {
+  const { id } = req.params;
+
+  const data = await prisma.user.findFirst({
+    where: {
+      id: Number(id),
+    },
+    include: {
+      userRoles: {
+        include: {
+          role: true,
+        },
+      },
+      userInstitutions: {
+        include: {
+          institution: true,
+        },
+      },
+    },
+  });
+
+  if(!data) {
+    return unauthorized("User tidak ditemukan!");
+  }
 
   return data;
 };
@@ -453,6 +566,10 @@ const getMe = async (req) => {
     },
   });
 
+  if(!data) {
+    return unauthorized("User tidak ditemukan!");
+  }
+
   return data;
 };
 
@@ -466,6 +583,8 @@ module.exports = {
   deleteUser,
   updateThumbnail,
   getMe,
+  getAllUser,
+  getOne,
   refreshToken,
   forgotPassword,
   resetPassword,
