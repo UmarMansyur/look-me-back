@@ -2,7 +2,7 @@ const { badRequest } = require("../utils/api.error");
 const prisma = require("../utils/db");
 const { paginate } = require("../utils/pagination");
 const moment = require("moment");
-
+const _ = require("lodash");
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
@@ -10,9 +10,9 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c;
   return d;
@@ -44,7 +44,7 @@ const calculateFaceSimilarity = (face1, face2, fileIndex) => {
 
   const boundingBoxDiff = Math.abs(
     face1.boundingBox.width * face1.boundingBox.height -
-      face2.boundingBox.width * face2.boundingBox.height
+    face2.boundingBox.width * face2.boundingBox.height
   );
 
   let weights = {
@@ -331,44 +331,67 @@ const reportAttendance = async (req) => {
 
   const result = [];
 
-  const a = listUser.map((user) => {
-    for (let i = startDate; i <= endDate; i.setDate(i.getDate() + 1)) {
-      const attendance = listAttendance.find((attendance) => {
-        return moment(attendance.check_in).isSame(i, "day");
+  const listHoliday = await prisma.$queryRaw`
+    SELECT * FROM holidays
+    WHERE institution_id = ${institution.institution_id}
+    AND YEAR(start_date) = ${year}
+    AND MONTH(start_date) = ${month}
+  `;
+
+  listUser.forEach((user) => {
+    const currentDate = moment(startDate);
+    const lastDate = moment(endDate);
+    
+    while (currentDate.isSameOrBefore(lastDate)) {
+      const attendance = listAttendance.find(
+        (attendance) => 
+          attendance.user_id === user.id && 
+          moment(attendance.check_in).isSame(currentDate, "day")
+      );
+
+      let type = "";
+
+      if(attendance && attendance.type === "Present") {
+        type = "Hadir";
+      } else if(attendance && attendance.type === "Alpa") {
+        type = "Izin";
+      } else if (attendance && attendance.type === "Sickness") {
+        type = "Sakit";
+      } else if (attendance && attendance.type === "Leave") {
+        type = "Cuti";
+      } else {
+        type = "Alpa";
+      }
+
+      result.push({
+        user_id: user.id,
+        name: user.username,
+        isHoliday: currentDate.isoWeekday() === 7 || listHoliday.some(holiday => moment(holiday.start_date).isSame(currentDate, "day")),
+        type,
+        date: currentDate.format("DD-MM-YYYY"),
       });
 
-      if (!attendance) {
-        result.push({
-          user_id: user.id,
-          name: user.username,
-          type: "Alpa",
-          date: moment(i).format("DD-MM-YYYY"),
-        });
-      } else {
-        result.push({
-          user_id: attendance.user_id,
-          name: attendance.user.username,
-          type: attendance.type,
-          date: moment(attendance.check_in).format("DD-MM-YYYY"),
-        });
-      }
+      currentDate.add(1, "day");
     }
   });
 
-  // format json { data: { name: , {date: , type: }}}
-  const groupedResult = result.reduce((acc, curr) => {
-    acc[curr.name] = acc[curr.name] || [];
-    acc[curr.name].push({ date: curr.date, type: curr.type });
-    return acc;
-  }, {});
+  const groupedResult = _.groupBy(result, "name");
+  const data = Object.keys(groupedResult).map((key) => ({
+    name: key,
+    total_present: groupedResult[key].filter((item) => item.type === "Hadir").length,
+    total_permission: groupedResult[key].filter((item) => item.type === "Izin").length,
+    total_sickness: groupedResult[key].filter((item) => item.type === "Sakit").length,
+    total_leave: groupedResult[key].filter((item) => item.type === "Cuti").length,
+    total_alpa: groupedResult[key].filter((item) => item.type === "Alpa").length,
+    data: groupedResult[key],
+  }));
 
-  const data = Object.keys(groupedResult).map((key) => {
-    return {
-      name: key,
-      data: groupedResult[key],
-    };
-  });
-  return data;
+  return {
+    start_date: startDate,
+    end_date: endDate,
+    total_days: moment(endDate).diff(moment(startDate), "days") + 1,
+    data,
+  };
 };
 
 module.exports = {
