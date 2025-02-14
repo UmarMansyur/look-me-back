@@ -8,7 +8,7 @@ const { paginate } = require("../utils/pagination");
 
 const login = async (req) => {
   const { username, password } = req.body;
-  
+
   const existingUser = await prisma.user.findFirst({
     where: {
       username,
@@ -201,8 +201,17 @@ const toggleEdit = async (req) => {
 };
 
 const updateProfile = async (req) => {
-  
-  const { id, username, email, phone, date_of_birth, address, gender, role_id, institution_id } = req.body;
+  const {
+    id,
+    username,
+    email,
+    phone,
+    date_of_birth,
+    address,
+    gender,
+    role_id,
+    institution_id,
+  } = req.body;
 
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -229,7 +238,7 @@ const updateProfile = async (req) => {
   const file = req.file;
   let imageUrl = undefined;
   if (file) {
-    if(existingUser.thumbnail !== null || existingUser.thumbnail !== "") {
+    if (existingUser.thumbnail !== null || existingUser.thumbnail !== "") {
       await deleteFile(existingUser.thumbnail);
     }
     imageUrl = await uploadFile(file);
@@ -250,25 +259,29 @@ const updateProfile = async (req) => {
     },
   });
 
-  await prisma.userRole.updateMany({
-    where: {
-      user_id: Number(id),
-      role_id: existingUser.userRoles[0].role_id,
-    },
-    data: {
-      role_id: Number(role_id),
-    },
-  });
+  if (role_id) {
+    await prisma.userRole.updateMany({
+      where: {
+        user_id: Number(id),
+        role_id: existingUser.userRoles[0].role_id,
+      },
+      data: {
+        role_id: Number(role_id),
+      },
+    });
+  }
 
-  await prisma.userInstitution.updateMany({
-    where: {
-      user_id: Number(id),
-      institution_id: existingUser.userInstitutions[0].institution_id,
-    },
-    data: {
-      institution_id: Number(institution_id),
-    },
-  });
+  if (institution_id) {
+    await prisma.userInstitution.updateMany({
+      where: {
+        user_id: Number(id),
+        institution_id: existingUser.userInstitutions[0].institution_id,
+      },
+      data: {
+        institution_id: Number(institution_id),
+      },
+    });
+  }
 
   return data;
 };
@@ -323,6 +336,9 @@ const updateAccount = async (req) => {
   const existingUsername = await prisma.user.findFirst({
     where: {
       username,
+      id: {
+        not: Number(id),
+      },
     },
   });
 
@@ -426,11 +442,7 @@ const resetPassword = async (req) => {
     },
   });
 
-  await sendMail(
-    email,
-    "Reset Password",
-    `Password anda berhasil direset!`
-  );
+  await sendMail(email, "Reset Password", `Password anda berhasil direset!`);
 
   return data;
 };
@@ -476,24 +488,24 @@ const deleteUser = async (req) => {
 };
 
 const getAllUser = async (req) => {
-  const { page = 1, limit = 10, search = ""} = req.query;
+  const { page = 1, limit = 10, search = "" } = req.query;
   const where = {};
 
-  if(search) {
+  if (search) {
     where.OR = [
       {
         username: {
-          contains: search
+          contains: search,
         },
       },
       {
         email: {
-          contains: search
+          contains: search,
         },
       },
       {
         phone: {
-          contains: search
+          contains: search,
         },
       },
     ];
@@ -512,7 +524,7 @@ const getAllUser = async (req) => {
     },
   };
 
-  const data = await paginate(where, page, limit, 'user', include)
+  const data = await paginate(where, page, limit, "user", include);
 
   return data;
 };
@@ -538,7 +550,7 @@ const getOne = async (req) => {
     },
   });
 
-  if(!data) {
+  if (!data) {
     return unauthorized("User tidak ditemukan!");
   }
 
@@ -566,7 +578,7 @@ const getMe = async (req) => {
     },
   });
 
-  if(!data) {
+  if (!data) {
     return unauthorized("User tidak ditemukan!");
   }
 

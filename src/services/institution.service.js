@@ -5,6 +5,8 @@ const { paginate } = require("../utils/pagination");
 const create = async (req) => {
   const { name, address, email, phone, lat, long } = req.body;
 
+  console.log(name, address, email, phone, lat, long);
+
   const existingInstitution = await prisma.institution.findFirst({
     where: {
       OR: [
@@ -21,15 +23,15 @@ const create = async (req) => {
     },
   });
 
-  if (existingInstitution.name === name) {
+  if (existingInstitution?.name === name) {
     return badRequest("Nama institusi sudah ada!");
   }
 
-  if (existingInstitution.email === email) {
+  if (existingInstitution?.email === email) {
     return badRequest("Email institusi sudah ada!");
   }
 
-  if (existingInstitution.phone === phone) {
+  if (existingInstitution?.phone === phone) {
     return badRequest("Nomor telepon institusi sudah ada!");
   }
 
@@ -53,7 +55,7 @@ const update = async (req) => {
 
   const existingInstitution = await prisma.institution.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -80,13 +82,13 @@ const update = async (req) => {
     },
   });
 
-  if (!existingInstitutionName) {
+  if (existingInstitutionName) {
     return badRequest("Institusi sudah ada!");
   }
 
   const data = await prisma.institution.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       name,
@@ -138,7 +140,7 @@ const getOne = async (req) => {
 
   const data = await prisma.institution.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -150,7 +152,7 @@ const destroy = async (req) => {
 
   const existingInstitution = await prisma.institution.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -160,7 +162,7 @@ const destroy = async (req) => {
 
   const data = await prisma.institution.delete({
     where: {
-      id,
+      id: Number(id),
     },
   });
 

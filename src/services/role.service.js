@@ -30,7 +30,7 @@ const update = async (req) => {
 
   const existingRole = await prisma.role.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -47,13 +47,13 @@ const update = async (req) => {
     },
   });
 
-  if (!existingRoleName) {
+  if (existingRoleName) {
     return badRequest("Role sudah ada!");
   }
 
   const data = await prisma.role.update({
     where: {
-      id,
+      id: Number(id),
     },
     data: {
       name,
@@ -86,7 +86,7 @@ const getOne = async (req) => {
 
   const data = await prisma.role.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -98,7 +98,7 @@ const destroy = async (req) => {
 
   const existingRole = await prisma.role.findFirst({
     where: {
-      id,
+      id: Number(id),
     },
   });
 
@@ -108,7 +108,7 @@ const destroy = async (req) => {
 
   const data = await prisma.role.delete({
     where: {
-      id,
+      id: Number(id),
     },
   });
 

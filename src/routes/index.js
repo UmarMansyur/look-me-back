@@ -10,5 +10,7 @@ router.use('/permission-request', require('./permission_request.route'));
 router.use('/warning-letter', require('./warning_letter.route'));
 router.use('/attendance', require('./attendance.route'));
 router.use('/users', require('./user.route'));
+router.use('/dashboard', require('./dashboard.route'));
+router.use('/notifications', require('./notification.route'));
 
 module.exports = router;
