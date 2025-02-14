@@ -16,5 +16,5 @@ router.patch('/update-face-id/:id', authorize(['Administrator', 'Kepala Pegawai'
 router.patch('/update-profile/:id', upload.single('thumbnail'), authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.updateProfileController);
 router.patch('/update-thumbnail/:id', upload.single('thumbnail'), authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.updateThumbnailController);
 router.delete('/delete/:id', authorize(['Administrator']), authController.deleteUserController);
-   
+router.patch('/change-role/:id', authorize(['Administrator', 'Kepala Pegawai']), authController.changeRoleController);
 module.exports = router;

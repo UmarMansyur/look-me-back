@@ -1,6 +1,7 @@
 const { badRequest } = require("../utils/api.error");
 const prisma = require("../utils/db");
 const { paginate } = require("../utils/pagination");
+const moment = require("moment");
 
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
@@ -286,8 +287,93 @@ const getOne = async (req) => {
   return attendance;
 };
 
+const reportAttendance = async (req) => {
+  const { id } = req.user;
+  const { month = moment().month() + 1, year = moment().year() } = req.query;
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(id),
+    },
+  });
+
+  const userInstitution = await prisma.userInstitution.findMany({
+    where: {
+      institution_id: Number(institution.institution_id),
+    },
+  });
+
+  const listUser = await prisma.user.findMany({
+    where: {
+      id: {
+        in: userInstitution.map((i) => i.user_id),
+      },
+    },
+  });
+
+  const startDate = moment(`${year}-${month}-01`).toDate();
+  const endDate = moment(`${year}-${month}-01`).endOf("month").toDate();
+
+  const listAttendance = await prisma.attendance.findMany({
+    where: {
+      user_id: {
+        in: listUser.map((user) => user.id),
+      },
+      created_at: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  const result = [];
+
+  const a = listUser.map((user) => {
+    for (let i = startDate; i <= endDate; i.setDate(i.getDate() + 1)) {
+      const attendance = listAttendance.find((attendance) => {
+        return moment(attendance.check_in).isSame(i, "day");
+      });
+
+      if (!attendance) {
+        result.push({
+          user_id: user.id,
+          name: user.username,
+          type: "Alpa",
+          date: moment(i).format("DD-MM-YYYY"),
+        });
+      } else {
+        result.push({
+          user_id: attendance.user_id,
+          name: attendance.user.username,
+          type: attendance.type,
+          date: moment(attendance.check_in).format("DD-MM-YYYY"),
+        });
+      }
+    }
+  });
+
+  // format json { data: { name: , {date: , type: }}}
+  const groupedResult = result.reduce((acc, curr) => {
+    acc[curr.name] = acc[curr.name] || [];
+    acc[curr.name].push({ date: curr.date, type: curr.type });
+    return acc;
+  }, {});
+
+  const data = Object.keys(groupedResult).map((key) => {
+    return {
+      name: key,
+      data: groupedResult[key],
+    };
+  });
+  return data;
+};
+
 module.exports = {
   create,
   getAll,
   getOne,
+  reportAttendance,
 };

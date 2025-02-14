@@ -488,6 +488,9 @@ const deleteUser = async (req) => {
 };
 
 const getAllUser = async (req) => {
+  const { id } = req.user;
+
+
   const { page = 1, limit = 10, search = "" } = req.query;
   const where = {};
 
@@ -509,6 +512,52 @@ const getAllUser = async (req) => {
         },
       },
     ];
+  }
+
+  const roleUser = await prisma.userRole.findMany({
+    where: {
+      user_id: id,
+    },
+    include: {
+      user: {
+        include: {
+          userInstitutions: {
+            include: {
+              institution: true,
+            },
+          },
+        },
+      },
+      role: true,
+    },
+  });
+
+  let list_user = [];
+  
+  if(!(roleUser.map(item => item.role.name).includes("Administrator"))) {
+    const list_institution = roleUser.map(item => item.user.userInstitutions[0].institution_id);
+    list_user = await prisma.userInstitution.findMany({
+      where: {
+        institution_id: {
+          in: list_institution,
+        },
+        user: {
+          userRoles: {
+            some: {
+              role: {
+                name: {
+                  notIn: ["Administrator"],
+                }
+              },
+            },
+          },
+        },
+      },
+    });
+
+    where.id = {
+      in: list_user.map(item => item.user_id),
+    }
   }
 
   const include = {
@@ -585,6 +634,58 @@ const getMe = async (req) => {
   return data;
 };
 
+const changeRole = async (req) => {
+  const { id } = req.params;
+  const { role_id } = req.body;
+
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: Number(id), 
+    },
+  });
+
+  if (!existingUser) {
+    return unauthorized("User tidak ditemukan!");
+  }
+
+  const existingRole = await prisma.role.findFirst({
+    where: {
+      id: Number(role_id),
+    },  
+  }); 
+
+  if (!existingRole) {
+    return unauthorized("Role tidak ditemukan!");
+  }
+
+  // jika ada update, jika tidak ada maka create
+  const existingUserRole = await prisma.userRole.findFirst({
+    where: {
+      user_id: Number(id),
+      role_id: Number(role_id),
+    },
+  });
+
+  let result;
+
+  if (existingUserRole) {
+    result = await prisma.userRole.delete({
+      where: {
+        id: existingUserRole.id,
+      },
+    });
+  } else {
+    result = await prisma.userRole.create({
+      data: {
+        user_id: Number(id),
+        role_id: Number(role_id),
+      },
+    });
+  }
+
+  return result;
+};
+
 module.exports = {
   login,
   register,
@@ -600,4 +701,5 @@ module.exports = {
   refreshToken,
   forgotPassword,
   resetPassword,
+  changeRole,
 };

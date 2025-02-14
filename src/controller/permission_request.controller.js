@@ -5,6 +5,7 @@ const {
     getAll,
     destroy,
     updateStatus,
+    getValidation,
   } = require("../services/permission_request.service");
   
   const { success } = require('../utils/response.handler');
@@ -62,6 +63,15 @@ const {
       next(error);
     }
   };
+
+  const getValidationPermissionRequestController = async (req, res, next) => {
+    try {
+      const data = await getValidation(req);
+      return success(res, data, "Permintaan izin berhasil ditemukan!", 200);
+    } catch (error) {
+      next(error);
+    }
+  }
   
   module.exports = {
     createPermissionRequestController,
@@ -69,6 +79,7 @@ const {
     getOnePermissionRequestController,
     getAllPermissionRequestController,
     destroyPermissionRequestController,
-    updateStatusPermissionRequestController
+    updateStatusPermissionRequestController,
+    getValidationPermissionRequestController,
   };
   

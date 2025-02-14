@@ -1,4 +1,4 @@
-const { getAll, getOne, create } = require("../services/attendance.service");
+const { getAll, getOne, create, reportAttendance } = require("../services/attendance.service");
 
 const { success } = require("../utils/response.handler");
 
@@ -29,8 +29,18 @@ const createAttendanceController = async (req, res, next) => {
   }
 };
 
+const reportAttendanceController = async (req, res, next) => {
+  try {
+    const data = await reportAttendance(req);
+    return success(res, data, "Absensi berhasil ditemukan!", 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllAttendanceController,
   getOneAttendanceController,
   createAttendanceController,
+  reportAttendanceController,
 };

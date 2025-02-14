@@ -189,7 +189,6 @@ model Attendance {
 
 enum Status {
   Pending
-  Accepted
   Approved
   Revised
   Rejected

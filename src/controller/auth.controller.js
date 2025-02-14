@@ -13,6 +13,7 @@ const {
   resetPassword,
   getAllUser,
   getOne,
+  changeRole,
 } = require("../services/auth.service");
 
 const { success } = require("../utils/response.handler");
@@ -143,6 +144,15 @@ const getOneUserController = async (req, res, next) => {
     next(error);
   }
 }
+
+const changeRoleController = async (req, res, next) => {
+  try {
+    const data = await changeRole(req);
+    return success(res, data, "Berhasil mengubah role pengguna!", 200);
+  } catch (error) {
+    next(error);
+  }
+}
 module.exports = {
   loginController,
   registerController,
@@ -158,4 +168,5 @@ module.exports = {
   resetPasswordController,
   getAllUserController,
   getOneUserController,
+  changeRoleController,
 };

@@ -2,6 +2,7 @@ const { Status } = require("@prisma/client");
 const prisma = require("../utils/db");
 const { badRequest } = require("../utils/api.error");
 const { uploadFile } = require("../utils/imageKit");
+const { paginate } = require("../utils/pagination");
 
 const create = async (req) => {
   const {
@@ -138,16 +139,31 @@ const updateStatus = async (req) => {
       },
     });
 
+    const userInstitution = await prisma.userInstitution.findFirst({
+      where: {
+        user_id: existingPermissionRequest.user_id,
+      },
+    });
+
     if (status === Status.Approved) {
-      await tx.attendance.create({
-        data: {
+      const startDate = new Date(existingPermissionRequest.start_date);
+      const endDate = new Date(existingPermissionRequest.end_date);
+      const attendance = [];
+      for (let date = startDate; date <= endDate; date.setDate(date.getDate() + 1)) {
+        attendance.push({
           user_id: existingPermissionRequest.user_id,
-          institution_id: existingPermissionRequest.institution_id,
+          institution_id: userInstitution.institution_id,
           type: existingPermissionRequest.type,
           images: "",
+          check_in: new Date(new Date(date).setHours(7, 0, 0, 0)),
+          check_out: new Date(new Date(date).setHours(16, 0, 0, 0)),
           lat: "",
           long: "",
-        },
+        });
+      }
+
+      await tx.attendance.createMany({
+        data: attendance,
       });
     }
 
@@ -184,6 +200,65 @@ const getAll = async (req) => {
 
   return response;
 };
+
+const getValidation = async (req) => {
+  const { institution_id } = req.query;
+  const { page = 1, limit = 10, search } = req.query;
+
+  const where = {};
+
+  const userInstitution = await prisma.userInstitution.findMany({
+    where: {
+      institution_id: Number(institution_id),
+    },
+  });
+
+  const userIds = userInstitution.map((item) => item.user_id);
+
+  where.user_id = {
+    in: userIds,
+  }
+  
+
+  if (search) {
+    where.OR = [
+      {
+        title: {
+          contains: search,
+        },
+      },
+      {
+        desc: {
+          contains: search,
+        },
+      },
+      {
+        user: {
+          OR: [
+            {
+              username: {
+                contains: search,
+              },
+            },
+            {
+              email: {
+                contains: search,
+              },
+            },
+          ],
+        },
+      },
+    ];
+  }
+
+  const include = {
+    user: true,
+  }
+
+  const response = await paginate(where, page, limit, "permissionRequest", include);
+
+  return response;
+}
 
 const getOne = async (req) => {
   const { id } = req.params;
@@ -228,4 +303,5 @@ module.exports = {
   getAll,
   getOne,
   destroy,
+  getValidation,
 };
