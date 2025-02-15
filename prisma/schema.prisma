@@ -143,8 +143,8 @@ model UserInstitution {
 
 model OperatingHours {
   id             Int         @id @default(autoincrement())
-  start_time     DateTime
-  end_time       DateTime
+  start_time     DateTime    @db.Time
+  end_time       DateTime    @db.Time
   status         Boolean
   late_tolerance Int
   institution_id Int

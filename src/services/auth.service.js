@@ -61,7 +61,7 @@ const login = async (req) => {
   const payload = {
     id: existingUser.id,
     username: existingUser.username,
-    role: existingUser.userRoles[0].role.name,
+    role: existingUser.userRoles.map(item => item.role.name),
     institution: existingUser.userInstitutions[0].institution.name,
   };
 

@@ -108,8 +108,8 @@ async function main() {
   await prisma.operatingHours.create({
     data: {
       institution_id: institution.id,
-      start_time: new Date("2025-02-12T08:00:00"),
-      end_time: new Date("2025-02-12T17:00:00"),
+      start_time: new Date('2024-01-01T08:00:00Z').toISOString(),
+      end_time: new Date('2024-01-01T17:00:00Z').toISOString(),
       status: true,
       late_tolerance: 15,
     },

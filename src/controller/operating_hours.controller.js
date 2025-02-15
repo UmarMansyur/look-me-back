@@ -4,6 +4,7 @@ const {
   getOne,
   getAll,
   destroy,
+  changeStatus,
 } = require("../services/operating_hours.service");
 
 const { success } = require("../utils/response.handler");
@@ -53,10 +54,20 @@ const destroyOperatingHoursController = async (req, res, next) => {
   }
 };
 
+const changeStatusController = async (req, res, next) => {
+  try {
+    const data = await changeStatus(req);
+    return success(res, data, "Status berhasil diubah!", 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createOperatingHoursController,
   updateOperatingHoursController,
   getOneOperatingHoursController,
   getAllOperatingHoursController,
   destroyOperatingHoursController,
+  changeStatusController,
 };

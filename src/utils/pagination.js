@@ -1,6 +1,6 @@
 const prisma = require('../utils/db');
 
-const paginate = async (where, page, limit, model, include = undefined) => {
+const paginate = async (where, page, limit, model, include = undefined, orderBy = undefined) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
 
@@ -8,7 +8,8 @@ const paginate = async (where, page, limit, model, include = undefined) => {
     where,
     skip,
     take,
-    include
+    include,
+    orderBy
   });
 
   const total = await prisma[model].count();

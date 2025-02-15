@@ -29,7 +29,11 @@ const getAll = async (req) => {
     ];
   }
 
-  const data = await paginate(where, page, limit, "holiday");
+  const orderBy = {
+    start_date: "desc",
+  };
+
+  const data = await paginate(where, page, limit, "holiday", undefined, orderBy);
 
   return data;
 }
@@ -74,10 +78,25 @@ const create = async (req) => {
 };
 
 const syncrhonize = async (req) => {
-  const { institution_id } = req.user;
+  const { id } = req.user;
 
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
+  
+  
   const response = await fetch("https://api-harilibur.vercel.app/api");
   const result = await response.json();
+
+
 
   const existingHolyday = await prisma.holiday.findMany({
     where: {
@@ -85,25 +104,25 @@ const syncrhonize = async (req) => {
     },
   });
 
-  const holidays = existingHolyday.filter((item) => {
-    return !result.some(
-      (item2) =>
-        item2.holiday_date === item.start_date &&
-        item2.holiday_name === item.event
-    );
+  const temp = [];
+  result.forEach(async (item) => {
+    const existing = existingHolyday.find((item2) => item2.event === item.holiday_name);
+    if (!existing) {
+      temp.push({
+        institution_id: Number(institution_id),
+        start_date: new Date(item.holiday_date),
+        end_date: new Date(item.holiday_date),
+        event: item.holiday_name,
+      });
+    }
   });
 
-  if (holidays.length === 0) {
+  if (temp.length === 0) {
     return [];
   }
 
   const data = await prisma.holiday.createMany({
-    data: holidays.map((item) => ({
-      institution_id: Number(institution_id),
-      start_date: new Date(item.holiday_date),
-      end_date: new Date(item.holiday_date),
-      event: item.holiday_name,
-    })),
+    data: temp,
   });
 
   return data;

@@ -27,6 +27,7 @@ CREATE TABLE `warning_letters` (
     `user_id` INTEGER NOT NULL,
     `title` VARCHAR(191) NOT NULL,
     `message` VARCHAR(191) NOT NULL,
+    `is_read` BOOLEAN NOT NULL DEFAULT false,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
@@ -39,7 +40,7 @@ CREATE TABLE `notifications` (
     `user_id` INTEGER NOT NULL,
     `title` VARCHAR(191) NOT NULL,
     `message` TEXT NOT NULL,
-    `routes` VARCHAR(191) NOT NULL,
+    `routes` VARCHAR(191) NULL,
     `is_read` BOOLEAN NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
@@ -52,8 +53,8 @@ CREATE TABLE `holidays` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `institution_id` INTEGER NOT NULL,
     `event` VARCHAR(191) NOT NULL,
-    `start_date` DATETIME(3) NOT NULL,
-    `end_date` DATETIME(3) NOT NULL,
+    `start_date` DATE NOT NULL,
+    `end_date` DATE NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
@@ -111,8 +112,8 @@ CREATE TABLE `user_institutions` (
 -- CreateTable
 CREATE TABLE `operating_hours` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `start_time` DATETIME(3) NOT NULL,
-    `end_time` DATETIME(3) NOT NULL,
+    `start_time` TIME NOT NULL,
+    `end_time` TIME NOT NULL,
     `status` BOOLEAN NOT NULL,
     `late_tolerance` INTEGER NOT NULL,
     `institution_id` INTEGER NOT NULL,
@@ -163,7 +164,7 @@ CREATE TABLE `permission_requests` (
     `end_date` DATE NOT NULL,
     `file` VARCHAR(191) NULL,
     `reason` TEXT NULL,
-    `status` ENUM('Pending', 'Accepted', 'Approved', 'Revised', 'Rejected') NOT NULL DEFAULT 'Pending',
+    `status` ENUM('Pending', 'Approved', 'Revised', 'Rejected') NOT NULL DEFAULT 'Pending',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
@@ -172,6 +173,9 @@ CREATE TABLE `permission_requests` (
 
 -- AddForeignKey
 ALTER TABLE `warning_letters` ADD CONSTRAINT `warning_letters_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `warning_letters` ADD CONSTRAINT `warning_letters_sender_id_fkey` FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `notifications` ADD CONSTRAINT `notifications_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

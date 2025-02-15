@@ -6,6 +6,7 @@ router.get('/', authorize(['Kepala Pegawai']), operatingHoursController.getAllOp
 router.get('/:id', authorize(['Kepala Pegawai']), operatingHoursController.getOneOperatingHoursController);
 router.post('/', authorize(['Kepala Pegawai']), operatingHoursController.createOperatingHoursController);
 router.put('/:id', authorize(['Kepala Pegawai']), operatingHoursController.updateOperatingHoursController);
+router.patch('/:id', authorize(['Kepala Pegawai']), operatingHoursController.changeStatusController);
 router.delete('/:id', authorize(['Kepala Pegawai']), operatingHoursController.destroyOperatingHoursController);
 
 module.exports = router;

@@ -6,6 +6,7 @@ router.get('/', authorize(['Administrator', 'Kepala Pegawai']), holiDayControlle
 router.get('/:id',authorize(['Administrator', 'Kepala Pegawai']), holiDayController.getOneHolidayController);
 router.post('/', authorize(['Administrator', 'Kepala Pegawai']), holiDayController.createHolidayController);
 router.put('/:id', authorize(['Administrator', 'Kepala Pegawai']), holiDayController.updateHolidayController);
+router.post('/sync', authorize(['Administrator', 'Kepala Pegawai']), holiDayController.synchronizeHolidayController);
 router.delete('/:id',authorize(['Administrator', 'Kepala Pegawai']), holiDayController.destroyHolidayController);
 
 module.exports = router;

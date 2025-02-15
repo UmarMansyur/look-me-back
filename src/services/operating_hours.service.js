@@ -1,10 +1,23 @@
 const { badRequest } = require("../utils/api.error");
 const prisma = require("../utils/db");
 const { paginate } = require("../utils/pagination");
+const moment = require("moment");
 
 const getAll = async (req) => {
   const { page = 1, limit = 10, search } = req.query;
-  const { institution_id } = req.user;
+  const { id } = req.user;
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
 
   const where = {
     institution_id: Number(institution_id),
@@ -44,7 +57,19 @@ const getAll = async (req) => {
 
 const getOne = async (req) => {
   const { id } = req.params;
-  const { institution_id } = req.user;
+  const { id: user_id } = req.user;
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(user_id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
 
   const data = await prisma.operatingHours.findFirst({
     where: {
@@ -60,13 +85,32 @@ const getOne = async (req) => {
 }
 
 const create = async (req) => {
-  const { institution_id } = req.user;
+  const { id } = req.user;
   const { start_time, end_time, status, late_tolerance } = req.body;
+
+  const today = moment().format("YYYY-MM-DD");
+
+  if(today + "T" + moment(start_time, "HH:mm:ss").format("HH:mm:ss") + "Z" > today + "T" + moment(end_time, "HH:mm:ss").format("HH:mm:ss") + "Z") {
+    return badRequest("Jam Mulai tidak boleh lebih dari jam selesai!");
+  }
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
 
   const existingOperatingHours = await prisma.operatingHours.findFirst({
     where: {
-      start_time,
-      end_time,
+
+      start_time: today + "T" + moment(start_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
+      end_time: today + "T" + moment(end_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
       institution_id: Number(institution_id),
     },
   });
@@ -78,8 +122,8 @@ const create = async (req) => {
   const data = await prisma.operatingHours.create({
     data: {
       institution_id: Number(institution_id),
-      start_time,
-      end_time,
+      start_time: today + "T" + moment(start_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
+      end_time: today + "T" + moment(end_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
       status: status == 'true' ? true : false,
       late_tolerance,
     },
@@ -90,8 +134,25 @@ const create = async (req) => {
 
 const update = async (req) => {
   const { id } = req.params;
-  const { institution_id } = req.user;
+  const { id: user_id } = req.user;
   const { start_time, end_time, status, late_tolerance } = req.body;
+
+  const today = moment().format("YYYY-MM-DD");
+  if(today + "T" + moment(start_time, "HH:mm:ss").format("HH:mm:ss") + "Z" > today + "T" + moment(end_time, "HH:mm:ss").format("HH:mm:ss") + "Z") {
+    return badRequest("Jam Mulai tidak boleh lebih dari jam selesai!");
+  }
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(user_id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
 
   const existingOperatingHours = await prisma.operatingHours.findFirst({
     where: {
@@ -104,10 +165,11 @@ const update = async (req) => {
     return badRequest("Jam operasional tidak ditemukan!");
   }
 
+
   const existingOperatingHoursTime = await prisma.operatingHours.findFirst({
     where: {
-      start_time,
-      end_time,
+      start_time: today + "T" + moment(start_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
+      end_time: today + "T" + moment(end_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
       institution_id: Number(institution_id),
       NOT: {
         id: Number(id),
@@ -124,8 +186,8 @@ const update = async (req) => {
       id: Number(id),
     },
     data: {
-      start_time,
-      end_time,
+      start_time: today + "T" + moment(start_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
+      end_time: today + "T" + moment(end_time, "HH:mm:ss").format("HH:mm:ss") + "Z",
       status: status == 'true' ? true : false,
       late_tolerance,
     },
@@ -136,7 +198,19 @@ const update = async (req) => {
 
 const destroy = async (req) => {
   const { id } = req.params;
-  const { institution_id } = req.user;
+  const { id: user_id } = req.user;
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(user_id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
 
   const existingOperatingHours = await prisma.operatingHours.findFirst({
     where: {
@@ -152,6 +226,10 @@ const destroy = async (req) => {
     return badRequest("Pelanggaran hak akses!");
   }
 
+  if(existingOperatingHours.status === true) {
+    return badRequest("Jam operasional masih aktif, nonaktifkan terlebih dahulu untuk menghapus!");
+  }
+
   const data = await prisma.operatingHours.delete({
     where: {
       id: Number(id),
@@ -161,10 +239,53 @@ const destroy = async (req) => {
   return data;
 }
 
+const changeStatus = async (req) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const { id: user_id } = req.user;
+
+  const institution = await prisma.userInstitution.findFirst({
+    where: {
+      user_id: Number(user_id),
+    },
+  });
+
+  if (!institution) {
+    return badRequest("Institusi tidak ditemukan!");
+  }
+
+  const institution_id = institution.institution_id;
+
+  const data = await prisma.operatingHours.update({
+    where: {
+      id: Number(id),
+    },
+    data: {
+      status,
+    },
+  });
+
+  await prisma.operatingHours.updateMany({
+    where: {
+      institution_id: Number(institution_id),
+      NOT: {
+        id: Number(id),
+      },
+    },
+    data: {
+      status: false,
+    },
+  });
+  return data;
+}
+
+
+
 module.exports = {
   getAll,
   getOne,
   create,
   update,
   destroy,
+  changeStatus,
 };
