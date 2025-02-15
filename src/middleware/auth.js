@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { unauthorized } = require("../utils/api.error");
 
 function authorize(roles = []) {
   if (typeof roles === "string") {
@@ -23,9 +24,7 @@ function authorize(roles = []) {
             }
           }
           if (!valid) {
-            const error = new Error("Akses tidak diizinkan!");
-            error.status = 401;
-            next(error);
+            throw unauthorized("Akses tidak diizinkan!");
           }
         }
 

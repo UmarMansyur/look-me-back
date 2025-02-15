@@ -7,6 +7,7 @@ const upload = multer();
 router.get('/profile/:id', authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.getMeController);
 router.get('/me', authorize(['Administrator', 'Kepala Pegawai', 'Pegawai']), authController.getMeController);
 router.post('/login', authController.loginController);
+router.post('/login-pegawai', authController.loginPegawaiController);
 router.post('/register', upload.single('thumbnail'), authorize(['Administrator', 'Kepala Pegawai']), authController.registerController);
 router.post('/forgot-password', authController.forgotPasswordController);
 router.post('/refresh-token', authController.refreshTokenController);

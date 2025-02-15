@@ -14,6 +14,7 @@ const {
   getAllUser,
   getOne,
   changeRole,
+  loginPegawai
 } = require("../services/auth.service");
 
 const { success } = require("../utils/response.handler");
@@ -26,6 +27,15 @@ const loginController = async (req, res, next) => {
     next(error);
   }
 };
+
+const loginPegawaiController = async (req, res, next) => {
+  try {
+    const data = await loginPegawai(req);
+    return success(res, data, "Login berhasil!", 200);
+  } catch (error) {
+    next(error);
+  }
+}
 
 const registerController = async (req, res, next) => {
   try {
@@ -169,4 +179,5 @@ module.exports = {
   getAllUserController,
   getOneUserController,
   changeRoleController,
+  loginPegawaiController
 };

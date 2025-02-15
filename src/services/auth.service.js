@@ -71,6 +71,51 @@ const login = async (req) => {
   };
 };
 
+const loginPegawai = async (req) => {
+  const { email, password } = req.body;
+
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      email,
+    },
+    include: {
+      userRoles: {
+        include: {
+          role: true,
+        },
+      },
+      userInstitutions: {
+        include: {
+          institution: true,
+        },
+      },
+    },
+  });
+
+  if (!existingUser) {
+    return unauthorized("Akun tidak ditemukan!");
+  }
+
+  const isValidPassword = await bcrypt.compare(password, existingUser.password);
+
+  if (!isValidPassword) {
+    return unauthorized("Password salah!");
+  }
+
+  const payload = {
+    id: existingUser.id,
+    username: existingUser.username,
+    role: existingUser.userRoles.map(item => item.role.name),
+    institution: existingUser.userInstitutions[0]?.institution,
+  };
+
+  return {
+    access_token: generateToken(payload, "access"),
+    refresh_token: generateToken(payload, "refresh"),
+  };
+  
+}
+
 const register = async (req) => {
   const {
     username,
@@ -702,4 +747,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changeRole,
+  loginPegawai
 };
