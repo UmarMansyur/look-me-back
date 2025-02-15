@@ -3,8 +3,7 @@ const { badRequest } = require("../utils/api.error");
 const { paginate } = require("../utils/pagination");
 
 const getAll = async (req) => {
-  const { page = 1, limit = 10, search } = req.query;
-  const { institution_id } = req.user;
+  const { page = 1, limit = 10, search, institution_id } = req.query;
 
   const where = {
     institution_id: Number(institution_id),
@@ -48,8 +47,7 @@ const getOne = async (req) => {
 };
 
 const create = async (req) => {
-  const { institution_id } = req.user;
-  const { start_date, end_date, event } = req.body;
+  const { start_date, end_date, event, institution_id } = req.body;
 
   const existingHolyday = await prisma.holiday.findFirst({
     where: {
@@ -66,8 +64,8 @@ const create = async (req) => {
   const data = await prisma.holiday.create({
     data: {
       institution_id: Number(institution_id),
-      start_date,
-      end_date,
+      start_date: new Date(start_date),
+      end_date: new Date(end_date),
       event: event,
     },
   });
@@ -112,19 +110,25 @@ const syncrhonize = async (req) => {
 };
 
 const update = async (req) => {
-  const { institution_id } = req.user;
-  const { id, start_date, end_date, description } = req.body;
+  const { id } = req.params;
+  const { start_date, end_date, event, institution_id } = req.body;
 
   const existingHolyday = await prisma.holiday.findFirst({
     where: {
+      event: event,
       start_date,
       end_date,
       institution_id: Number(institution_id),
+      NOT: {
+        id: Number(id),
+      },
     },
   });
 
-  if (existingHolyday && existingHolyday.id !== id) {
-    return badRequest("Tanggal libur sudah ada!");
+  if (existingHolyday) {
+    return badRequest(
+      "Tanggal libur sudah ada!, Silahkan cek kembali tanggal awal dan tanggal akhir"
+    );
   }
 
   const data = await prisma.holiday.update({
@@ -132,9 +136,9 @@ const update = async (req) => {
       id: Number(id),
     },
     data: {
-      start_date,
-      end_date,
-      event: description,
+      start_date: new Date(start_date),
+      end_date: new Date(end_date),
+      event: event,
     },
   });
 

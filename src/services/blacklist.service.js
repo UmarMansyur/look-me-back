@@ -45,6 +45,8 @@ const create = async (req) => {
         ).toLocaleDateString("id-ID")} hingga ${new Date(
           data.end_date
         ).toLocaleDateString("id-ID")}`,
+        routes: "/dashboard",
+        is_read: false,
       },
     });
 
@@ -54,9 +56,19 @@ const create = async (req) => {
 };
 
 const getAll = async (req) => {
-  const { page = 1, limit = 10, search } = req.query;
-
+  const { page = 1, limit = 10, search, institution_id } = req.query;
   const where = {};
+
+  const list_user = await prisma.userInstitution.findMany({
+    where: {
+      institution_id: Number(institution_id),
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  const list_user_id = list_user.map((item) => item.user_id);
 
   if (search) {
     where.OR = [
@@ -68,7 +80,24 @@ const getAll = async (req) => {
     ];
   }
 
-  const data = await paginate(where, page, limit, "blackList");
+  if (institution_id) {
+    where.user_id = {
+      in: list_user_id,
+    };
+  }
+
+  const include = {
+    user: {
+      select: {
+        thumbnail: true,
+        username: true,
+        email: true,
+        phone: true,
+      },
+    },
+  };
+
+  const data = await paginate(where, page, limit, "blackList", include);
 
   return data;
 };
@@ -147,6 +176,8 @@ const update = async (req) => {
         ).toLocaleDateString("id-ID")} hingga ${new Date(
           data.end_date
         ).toLocaleDateString("id-ID")}`,
+        routes: "/dashboard",
+        is_read: false,
       },
     });
 
@@ -179,6 +210,8 @@ const destroy = async (req) => {
         user_id: existingBlackList.user_id,
         title: "Penghapusan Pemblokiran",
         message: `Akun anda telah dibuka oleh administrator`,
+        routes: "/dashboard",
+        is_read: false,
       },
     });
 

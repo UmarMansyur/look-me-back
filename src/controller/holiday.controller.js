@@ -4,7 +4,8 @@ const {
   getOne,
   getAll,
   destroy,
-} = require("../services/operating_hours.service");
+  syncrhonize
+} = require("../services/holiday.service");
 
 const { success } = require("../utils/response.handler");
 
@@ -26,9 +27,9 @@ const updateHolidayController = async (req, res, next) => {
   }
 };
 
-const syncrhonizeHolidayController = async (req, res, next) => {
+const synchronizeHolidayController = async (req, res, next) => {
   try {
-    const data = await synchronize(req);
+    const data = await syncrhonize(req);
     return success(res, data, "Hari Libur berhasil disinkronisasi!", 200);
   } catch (error) {
     next(error);
@@ -68,5 +69,5 @@ module.exports = {
   getOneHolidayController,
   getAllHolidayController,
   destroyHolidayController,
-  syncrhonizeHolidayController,
+  synchronizeHolidayController,
 };

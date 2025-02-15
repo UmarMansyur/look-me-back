@@ -5,5 +5,6 @@ router.post("/", attendanceController.createAttendanceController);
 router.get("/", attendanceController.getAllAttendanceController);
 router.get("/report", authorize(['Kepala Pegawai', 'Administrator']), attendanceController.reportAttendanceController);
 router.get("/attendance/:id", authorize(['Kepala Pegawai', 'Pegawai', 'Administrator']), attendanceController.getOneAttendanceController);
-
+router.get("/export", attendanceController.exportAttendanceController);
+router.get("/export-pdf", attendanceController.exportPDFController);
 module.exports = router;

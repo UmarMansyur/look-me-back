@@ -8,25 +8,26 @@ datasource db {
 }
 
 model User {
-  id                 Int                 @id @default(autoincrement())
-  username           String              @unique
-  password           String
-  email              String              @unique
-  phone              String?
-  date_of_birth      DateTime            @db.Date
-  gender             Gender?             @default(Male)
-  expired_otp        String?
-  address            String?             @db.Text
-  thumbnail          String?
-  description        Json?
-  is_edit            Boolean?            @default(false)
-  notifications      Notification[]
-  warningLetters     WarningLetter[]
-  userRoles          UserRole[]
-  userInstitutions   UserInstitution[]
-  attendances        Attendance[]
-  blackLists         BlackList[]
-  permissionRequests PermissionRequest[]
+  id                   Int                 @id @default(autoincrement())
+  username             String              @unique
+  password             String
+  email                String              @unique
+  phone                String?
+  date_of_birth        DateTime            @db.Date
+  gender               Gender?             @default(Male)
+  expired_otp          String?
+  address              String?             @db.Text
+  thumbnail            String?
+  description          Json?
+  is_edit              Boolean?            @default(false)
+  notifications        Notification[]
+  warningLetters       WarningLetter[]
+  senderWarningLetters WarningLetter[]     @relation("Sender")
+  userRoles            UserRole[]
+  userInstitutions     UserInstitution[]
+  attendances          Attendance[]
+  blackLists           BlackList[]
+  permissionRequests   PermissionRequest[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -40,13 +41,14 @@ enum Gender {
 }
 
 model WarningLetter {
-  id        Int    @id @default(autoincrement())
-  sender_id Int
-  user_id   Int
-  title     String
-  message   String
-  user      User   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
+  id         Int      @id @default(autoincrement())
+  sender_id  Int
+  user_id    Int
+  title      String
+  message    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sender     User     @relation("Sender", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  is_read    Boolean  @default(false)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -58,7 +60,7 @@ model Notification {
   user_id Int
   title   String
   message String  @db.Text
-  routes  String
+  routes  String?
   is_read Boolean
   user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -73,8 +75,8 @@ model Holiday {
   institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   institution_id Int
   event          String
-  start_date     DateTime
-  end_date       DateTime
+  start_date     DateTime    @db.Date
+  end_date       DateTime    @db.Date
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

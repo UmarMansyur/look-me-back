@@ -3,6 +3,9 @@ const prisma = require("../utils/db");
 const { paginate } = require("../utils/pagination");
 const moment = require("moment");
 const _ = require("lodash");
+const xlsx = require("node-xlsx");
+const Excel = require('exceljs');
+
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
@@ -343,6 +346,10 @@ const reportAttendance = async (req) => {
     const lastDate = moment(endDate);
     
     while (currentDate.isSameOrBefore(lastDate)) {
+      const isHoliday = currentDate.isoWeekday() === 7 || listHoliday.some(holiday => 
+        moment(holiday.start_date).isSame(currentDate, "day")
+      );
+
       const attendance = listAttendance.find(
         (attendance) => 
           attendance.user_id === user.id && 
@@ -351,9 +358,11 @@ const reportAttendance = async (req) => {
 
       let type = "";
 
-      if(attendance && attendance.type === "Present") {
+      if (isHoliday) {
+        type = ""; // Empty string for holidays
+      } else if(attendance && attendance.type === "Present") {
         type = "Hadir";
-      } else if(attendance && attendance.type === "Alpa") {
+      } else if(attendance && attendance.type === "Izin") {
         type = "Izin";
       } else if (attendance && attendance.type === "Sickness") {
         type = "Sakit";
@@ -366,7 +375,7 @@ const reportAttendance = async (req) => {
       result.push({
         user_id: user.id,
         name: user.username,
-        isHoliday: currentDate.isoWeekday() === 7 || listHoliday.some(holiday => moment(holiday.start_date).isSame(currentDate, "day")),
+        isHoliday,
         type,
         date: currentDate.format("DD-MM-YYYY"),
       });
@@ -382,7 +391,7 @@ const reportAttendance = async (req) => {
     total_permission: groupedResult[key].filter((item) => item.type === "Izin").length,
     total_sickness: groupedResult[key].filter((item) => item.type === "Sakit").length,
     total_leave: groupedResult[key].filter((item) => item.type === "Cuti").length,
-    total_alpa: groupedResult[key].filter((item) => item.type === "Alpa").length,
+    total_alpa: groupedResult[key].filter((item) => item.type === "Alpa").length - groupedResult[key].filter((item) => item.isHoliday).length,
     data: groupedResult[key],
   }));
 
@@ -394,9 +403,154 @@ const reportAttendance = async (req) => {
   };
 };
 
+const exportAttendance = async (req) => {
+  try {
+    req.user = { id: req.query.id };
+    const data = await reportAttendance(req);
+    
+    if (!data) return null;
+
+    const workbook = new Excel.Workbook();
+    const worksheet = workbook.addWorksheet('Attendance Report');
+
+    // Define custom colors
+    const colors = {
+      header: '4472C4',
+      subHeader: '8EA9DB',
+      present: 'E2EFDA',
+      absent: 'FFE6E6',
+      holiday: 'FFF2CC',
+      summary: 'E7E6E6'
+    };
+
+    // Headers setup
+    const headers = ["Nama", "Tanggal Kehadiran", "Rekapitulasi"];
+    const subHeaders = [
+      '',
+      ...Array.from({ length: data.total_days }, (_, i) => 
+        moment(data.start_date).add(i, "days").format("DD-MM-YYYY")
+      ),
+      "Hadir", "Izin", "Sakit", "Cuti", "Alpa"
+    ];
+
+    // Add and style headers
+    worksheet.addRow(headers);
+    worksheet.addRow(subHeaders);
+
+    // Merge header cells
+    worksheet.mergeCells(1, 2, 1, data.total_days + 1); // Tanggal Kehadiran
+    worksheet.mergeCells(1, data.total_days + 2, 1, data.total_days + 6); // Rekapitulasi
+
+    // Style functions
+    const applyHeaderStyle = (row, color) => {
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: color }
+        };
+        cell.font = {
+          color: { argb: 'FFFFFF' },
+          bold: true,
+          size: 11
+        };
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    };
+
+    // Apply styles to headers
+    applyHeaderStyle(worksheet.getRow(1), colors.header);
+    applyHeaderStyle(worksheet.getRow(2), colors.subHeader);
+
+    // Add and style data rows
+    data.data.forEach((item) => {
+      const row = worksheet.addRow([
+        item.name,
+        ...item.data.map(d => d.type),
+        item.total_present,
+        item.total_permission,
+        item.total_sickness,
+        item.total_leave,
+        item.total_alpa
+      ]);
+
+      row.eachCell((cell, colNumber) => {
+        // Base cell styling
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        // Attendance data styling
+        if (colNumber > 1 && colNumber <= data.total_days + 1) {
+          const dayData = item.data[colNumber - 2];
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { 
+              argb: dayData.isHoliday ? colors.holiday :
+                    dayData.type === 'Hadir' ? colors.present :
+                    dayData.type === 'Alpa' ? colors.absent : 'FFFFFF'
+            }
+          };
+        }
+        
+        // Summary columns styling
+        if (colNumber > data.total_days + 1) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: colors.summary }
+          };
+          cell.font = { bold: true };
+        }
+      });
+    });
+
+    // Set column widths
+    worksheet.columns.forEach(column => {
+      column.width = 15;
+    });
+    worksheet.getColumn(1).width = 25; // Name column wider
+
+    // Freeze panes
+    worksheet.views = [{ 
+      state: 'frozen', 
+      xSplit: 1, 
+      ySplit: 2 // Freeze both header rows
+    }];
+
+    return await workbook.xlsx.writeBuffer();
+  } catch (error) {
+    console.error('Error generating attendance report:', error);
+    throw error;
+  }
+};
+
+const exportPDF = async (req) => {
+  req.user = { id: req.query.id };
+  const data = await reportAttendance(req);
+  return data;
+};
+
 module.exports = {
   create,
   getAll,
   getOne,
   reportAttendance,
+  exportAttendance,
+  exportPDF,
 };
