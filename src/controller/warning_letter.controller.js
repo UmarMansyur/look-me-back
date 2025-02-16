@@ -4,6 +4,7 @@ const {
     getOne,
     getAll,
     destroy,
+    getMyMessage,
   } = require("../services/warning_letter.service");
   
   const { success } = require('../utils/response.handler');
@@ -37,7 +38,7 @@ const {
   
   const getAllWarningLetterController = async (req, res, next) => {
     try {
-      const data = await getAll(req);
+      const data = await getMyMessage(req);
       return success(res, data, "Surat peringatan berhasil ditemukan!", 200);
     } catch (error) {
       next(error);

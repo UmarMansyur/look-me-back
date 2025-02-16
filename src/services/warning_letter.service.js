@@ -79,6 +79,15 @@ const getAll = async (req) => {
   const { page = 1, limit = 10, search, institution_id } = req.query;
   const { id } = req.user;
 
+  if (!institution_id) {
+    const institution = await prisma.institution.findFirst({
+      where: {
+        user_id: Number(id),
+      },
+    });
+    institution_id = institution.id;
+  }
+
   const list_user = await prisma.userInstitution.findMany({
     where: {
       institution_id: Number(institution_id),
@@ -87,7 +96,7 @@ const getAll = async (req) => {
       user: true,
     },
   });
-  
+
   const list_user_id = list_user.map((item) => item.user_id);
 
   const where = {
@@ -113,12 +122,49 @@ const getAll = async (req) => {
 
   const include = {
     user: true,
-    sender: true
+    sender: true,
   };
 
   const data = await paginate(where, page, limit, "warningLetter", include);
 
   return data;
+};
+
+const getMyMessage = async (req) => {
+  const { id } = req.user;
+  const { search } = req.query;
+
+  const data = await prisma.warningLetter.findMany({
+    where: {
+      user_id: Number(id),
+      ...(search && {
+        OR: [
+          { title: { contains: search } },
+          { message: { contains: search } },
+          { sender: { username: { contains: search } } },
+        ],
+      }),
+    },
+    include: {
+      sender: true,
+    },
+  });
+
+  return data.map((item) => ({
+    ...item,
+    username: item.sender?.username,
+    thumbnail: item.sender?.thumbnail,
+    // lima menit yang lalu
+    time_ago: new Date(item.created_at).toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    created_at: new Date(item.created_at).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }),
+  }));
 };
 
 const getOne = async (req) => {
@@ -130,9 +176,28 @@ const getOne = async (req) => {
       id: Number(id),
       user_id: Number(userId),
     },
+    include: {
+      sender: true,
+    },
   });
 
-  return data;
+  if (!data) {
+    return badRequest("Data tidak ditemukan!");
+  }
+
+  await prisma.warningLetter.update({
+    where: {
+      id: Number(id),
+    },
+    data: {
+      is_read: true,
+    },
+  });
+  return {
+    ...data,
+    thumbnail: data.sender?.thumbnail,
+    username: data.sender?.username,
+  }
 };
 
 const destroy = async (req) => {
@@ -165,4 +230,5 @@ module.exports = {
   getOne,
   update,
   destroy,
+  getMyMessage,
 };

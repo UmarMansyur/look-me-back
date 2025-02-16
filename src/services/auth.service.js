@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const { deleteFile, uploadFile } = require("../utils/imageKit");
 const { generateToken, decodeToken } = require("../utils/jwt");
 const { sendMail } = require("../utils/nodemailer");
+const jwt = require("jsonwebtoken");
 const { paginate } = require("../utils/pagination");
 
 const login = async (req) => {
@@ -74,6 +75,8 @@ const login = async (req) => {
 const loginPegawai = async (req) => {
   const { email, password } = req.body;
 
+  console.log(email, password);
+
   const existingUser = await prisma.user.findFirst({
     where: {
       email,
@@ -110,8 +113,8 @@ const loginPegawai = async (req) => {
   };
 
   return {
-    access_token: generateToken(payload, "access"),
-    refresh_token: generateToken(payload, "refresh"),
+    access_token: jwt.sign(payload, process.env.JWT_SECRET_ACCESS, { expiresIn: "1d" }),
+    refresh_token: jwt.sign(payload, process.env.JWT_SECRET_REFRESH, { expiresIn: "7d" }),
   };
   
 }

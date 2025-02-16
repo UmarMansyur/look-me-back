@@ -1,3 +1,4 @@
+const { notFound } = require('../utils/api.error');
 const prisma = require('../utils/db');
 
 const adminDashboard = async () => {
@@ -145,8 +146,127 @@ const headOfInstitutionDashboard = async (req) => {
   };
 };
 
+const getEmployeeDashboard = async (req) => {
+  const { id: user_id } = req.user;
+
+  const user = await prisma.user.findUnique({
+    where: { id: Number(user_id) },
+  });
+
+  if(!user) {
+    return notFound('Pengguna tidak ditemukan');
+  }
+
+  const userInstitution = await prisma.userInstitution.findFirst({
+    where: { user_id: Number(user_id) },
+  });
+
+  if(!userInstitution) {
+    return notFound('Pengguna tidak ditemukan');
+  }
+
+  const todayPresent = await prisma.attendance.findFirst({
+    where: {
+      institution_id: userInstitution.institution_id,
+      user_id: Number(user_id),
+      check_in: {
+        gte: new Date(),
+        lt: new Date(new Date().setDate(new Date().getDate() + 1)),
+      },
+    },
+  });
+
+  // total present month
+  const total_present = await prisma.attendance.count({
+    where: {
+      institution_id: userInstitution.institution_id,
+      user_id: Number(user_id),
+      type: 'Present',
+      check_in: {
+        gte: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        lt: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      },
+    },
+  });
+
+  const total_permission = await prisma.permissionRequest.count({
+    where: {
+      user_id: Number(user_id),
+      status: 'Approved',
+      start_date: {
+        gte: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        lt: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      },
+      end_date: {
+        gte: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        lt: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      },
+    },
+  });
+
+  const total_kehadiran_tahunan = await prisma.attendance.findMany({
+    where: {
+      institution_id: userInstitution.institution_id,
+      user_id: Number(user_id),
+      check_in: {
+        gte: new Date(new Date().setYear(new Date().getFullYear() - 1)),
+        lt: new Date(new Date().setYear(new Date().getFullYear() + 1)),
+      },
+    },
+  });
+
+
+
+  // group by month check_in jika tidak ada check_in maka dianggap 0
+  const total_kehadiran_tahunan_group_by_month = total_kehadiran_tahunan.reduce((acc, curr) => {
+    const month = new Date(curr.check_in).getMonth();
+    acc[month] = (acc[month] || 0) + 1;
+    return acc;
+  }, {});
+
+  // format jsonn { name: 1, value: 1 }, { name: 2, value: 2 }
+  const total_kehadiran_tahunan_group_by_month_formatted = Object.entries(total_kehadiran_tahunan_group_by_month).map(([key, value]) => ({ name: Number(key - 1), value }));
+
+  for (let i = 0; i <= 11; i++) {
+    if (!total_kehadiran_tahunan_group_by_month_formatted.find((item) => item.name === i)) {
+      total_kehadiran_tahunan_group_by_month_formatted.push({ name: i, value: 0 });
+    }
+  }
+
+  total_kehadiran_tahunan_group_by_month_formatted.sort((a, b) => a.name - b.name);
+  
+  const history_kehadiran = await prisma.attendance.findMany({
+    where: {
+      institution_id: userInstitution.institution_id,
+      user_id: Number(user_id),
+    },
+    orderBy: {
+      check_in: 'desc',
+    },
+    take: 5,
+  });
+  
+
+  return {
+    today_present: { 
+      check_in: todayPresent?.check_in ? new Date(todayPresent?.check_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null,
+      check_out: todayPresent?.check_out ? new Date(todayPresent?.check_out).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null,
+    },
+    total_kehadiran: total_present ? total_present : 0,
+    total_permission: total_permission ? total_permission : 0,
+    kehadiran_tahunan: total_kehadiran_tahunan_group_by_month_formatted,
+    history_kehadiran: history_kehadiran.map((item) => ({
+      check_in: new Date(item.check_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) || '-',
+      check_out: new Date(item.check_out).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) || '-',
+      type: item.type,
+      tanggal: new Date(item.check_in).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) || '-',
+    })),
+  };
+};
+
 module.exports = {
   adminDashboard,
   headOfInstitutionDashboard,
+  getEmployeeDashboard,
 };
 

@@ -83,8 +83,7 @@ async function main() {
       email: "admin@lookme.com",
       address:
         "Jl. Simpang Tiga Madrasah Al-Ghazali Rombasan Pragaan Sumenep 69465",
-      logo:
-        "https://ik.imagekit.io/8zmr0xxik/Colorful%20Gradient%20Background%20Man%203D%20Avatar.png",
+      logo: "https://ik.imagekit.io/8zmr0xxik/Colorful%20Gradient%20Background%20Man%203D%20Avatar.png",
     },
   });
 
@@ -108,10 +107,92 @@ async function main() {
   await prisma.operatingHours.create({
     data: {
       institution_id: institution.id,
-      start_time: new Date('2024-01-01T08:00:00Z').toISOString(),
-      end_time: new Date('2024-01-01T17:00:00Z').toISOString(),
+      start_time: new Date("2024-01-01T08:00:00Z").toISOString(),
+      end_time: new Date("2024-01-01T17:00:00Z").toISOString(),
       status: true,
       late_tolerance: 15,
+    },
+  });
+
+  // attendance
+  for (let i = 1; i <= 12; i++) {
+    await prisma.attendance.create({
+      data: {
+        user_id: 3,
+        institution_id: institution.id,
+        check_in: `2024-${i < 10 ? `0${i}` : i}-01T08:00:00Z`,
+        check_out: `2024-${i < 10 ? `0${i}` : i}-01T17:00:00Z`,
+        lat: "-6.2089",
+        long: "106.8456",
+        type: "Present",
+      },
+    });
+    await prisma.attendance.create({
+      data: {
+        user_id: 3,
+        institution_id: institution.id,
+        check_in: `2024-${i < 10 ? `0${i}` : i}-02T08:00:00Z`,
+        check_out: `2024-${i < 10 ? `0${i}` : i}-02T17:00:00Z`,
+        lat: "-6.2089",
+        long: "106.8456",
+        type: "Present",
+      },
+    });
+    await prisma.attendance.create({
+      data: {
+        user_id: 3,
+        institution_id: institution.id,
+        check_in: `2024-${i < 10 ? `0${i}` : i}-03T08:00:00Z`,
+        check_out: `2024-${i < 10 ? `0${i}` : i}-03T17:00:00Z`,
+        lat: "-6.2089",
+        long: "106.8456",
+        type: "Present",
+      },
+    });
+  }
+
+  for (let i = 1; i <= 100; i++) {
+    await prisma.warningLetter.create({
+      data: {
+        user_id: 3,
+        sender_id: 1,
+        title: `Warning Letter ${i}`,
+        message: `Warning Letter ${i}`,
+        is_read: false,
+      },
+    });
+  }
+
+  // membuat perizinan
+
+  await prisma.permissionRequest.create({
+    data: {
+      user_id: 3,
+      start_date: new Date(`2024-01-01T08:00:00Z`),
+      end_date: new Date(`2024-01-01T17:00:00Z`),
+      title: "Izin",
+      desc: "Izin",
+      type: "Permission",
+    },
+  });
+  await prisma.permissionRequest.create({
+    data: {
+      user_id: 3,
+      start_date: new Date(`2024-01-01T08:00:00Z`),
+      end_date: new Date(`2024-01-01T17:00:00Z`),
+      title: "Cuti",
+      desc: "Cuti",
+      type: "Leave",
+    },
+  });
+  await prisma.permissionRequest.create({
+    data: {
+      user_id: 3,
+      start_date: new Date(`2024-01-01T08:00:00Z`),
+      end_date: new Date(`2024-01-01T17:00:00Z`),
+      title: "Sakit",
+      desc: "Sakit",
+      type: "Sickness",
     },
   });
 }
