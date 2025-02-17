@@ -5,6 +5,7 @@ const upload = require('../utils/multer');
 
 router.get('/', authorize(['Kepala Pegawai', 'Administrator', 'Pegawai']), permissionRequestController.getAllPermissionRequestController);
 router.get('/validation', authorize(['Kepala Pegawai', 'Administrator', 'Pegawai']), permissionRequestController.getValidationPermissionRequestController);
+router.get('/my-request', authorize(['Pegawai']), permissionRequestController.getMyPermissionRequestController);
 router.get('/attendance/:id', authorize(['Kepala Pegawai', 'Pegawai']), permissionRequestController.getOnePermissionRequestController);
 router.patch('/:id', authorize(['Kepala Pegawai', 'Administrator']), permissionRequestController.updateStatusPermissionRequestController);
 router.post('/', authorize(['Pegawai']), upload.uploadImage().single('file'), permissionRequestController.createPermissionRequestController);

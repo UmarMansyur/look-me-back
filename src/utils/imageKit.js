@@ -24,6 +24,32 @@ async function uploadFile(file) {
   });
 }
 
+// {
+//   fieldname: 'file',
+//   originalname: 'IMG-20250208-WA0002.jpeg',
+//   encoding: '7bit',
+//   mimetype: 'image/jpeg',
+//   destination: 'public/images',
+//   filename: '1740595921807.jpeg',
+//   path: 'public\\images\\1740595921807.jpeg',
+//   size: 1118713
+// }
+
+async function uploadFileBytes(file) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const base64Data = file.toString("base64");
+      const fileUploaded = await imageKit.upload({
+        file: base64Data,
+        fileName: file.originalname,
+      });
+      resolve(fileUploaded.url);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 async function getFileId(filename) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -108,5 +134,6 @@ module.exports = {
   uploadFile,
   getFileId,
   deleteFile,
-  validationFile
+  validationFile,
+  uploadFileBytes
 };

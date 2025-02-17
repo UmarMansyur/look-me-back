@@ -1,4 +1,4 @@
-const { getAll, getOne, create, reportAttendance, exportAttendance, exportPDF } = require("../services/attendance.service");
+const { getAll, getOne, create, reportAttendance, exportAttendance, exportPDF, myFace, saveFace } = require("../services/attendance.service");
 const { success } = require("../utils/response.handler");
 
 const getAllAttendanceController = async (req, res, next) => {
@@ -57,6 +57,23 @@ const exportPDFController = async (req, res, next) => {
   }
 };
 
+const myFaceController = async (req, res, next) => {
+  try {
+    const data = await myFace(req);
+    return success(res, data, "Wajah berhasil ditemukan!", 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const saveFaceController = async (req, res, next) => {
+  try {
+    const data = await saveFace(req);
+    return success(res, data, "Wajah berhasil disimpan!", 200);
+  } catch (error) {
+    next(error);
+  }
+};
 module.exports = {
   getAllAttendanceController,
   getOneAttendanceController,
@@ -64,4 +81,6 @@ module.exports = {
   reportAttendanceController,
   exportAttendanceController,
   exportPDFController,
+  myFaceController,
+  saveFaceController,
 };

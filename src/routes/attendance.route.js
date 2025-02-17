@@ -1,10 +1,12 @@
 const router = require("express").Router();
 const { attendanceController } = require("../controller");
 const authorize = require("../middleware/auth");
-router.post("/", attendanceController.createAttendanceController);
+router.post("/", authorize(['Kepala Pegawai', 'Pegawai', 'Administrator']), attendanceController.createAttendanceController);
 router.get("/", attendanceController.getAllAttendanceController);
 router.get("/report", authorize(['Kepala Pegawai', 'Administrator']), attendanceController.reportAttendanceController);
 router.get("/attendance/:id", authorize(['Kepala Pegawai', 'Pegawai', 'Administrator']), attendanceController.getOneAttendanceController);
 router.get("/export", attendanceController.exportAttendanceController);
 router.get("/export-pdf", attendanceController.exportPDFController);
+router.get("/my-face", authorize(['Kepala Pegawai', 'Pegawai', 'Administrator']), attendanceController.myFaceController);
+router.post("/save-face", authorize(['Kepala Pegawai', 'Pegawai', 'Administrator']), attendanceController.saveFaceController);
 module.exports = router;

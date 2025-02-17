@@ -1,7 +1,7 @@
 const { Status } = require("@prisma/client");
 const prisma = require("../utils/db");
 const { badRequest } = require("../utils/api.error");
-const { uploadFile } = require("../utils/imageKit");
+const { uploadFile, uploadFileBytes } = require("../utils/imageKit");
 const { paginate } = require("../utils/pagination");
 
 const create = async (req) => {
@@ -39,13 +39,14 @@ const create = async (req) => {
 
   const file = req.file;
   let imageUrl = undefined;
-  if (!file) {
-    imageUrl = await uploadFile(file);
+  if (file) {
+    // kirim
+    imageUrl = await uploadFileBytes(file);
   }
 
   const response = await prisma.permissionRequest.create({
     data: {
-      user_id: Number(user_id),
+      user_id: Number(id),
       title,
       desc,
       type,
@@ -149,7 +150,11 @@ const updateStatus = async (req) => {
       const startDate = new Date(existingPermissionRequest.start_date);
       const endDate = new Date(existingPermissionRequest.end_date);
       const attendance = [];
-      for (let date = startDate; date <= endDate; date.setDate(date.getDate() + 1)) {
+      for (
+        let date = startDate;
+        date <= endDate;
+        date.setDate(date.getDate() + 1)
+      ) {
         attendance.push({
           user_id: existingPermissionRequest.user_id,
           institution_id: userInstitution.institution_id,
@@ -201,6 +206,102 @@ const getAll = async (req) => {
   return response;
 };
 
+const getPermissionRequest = async (req) => {
+  const { search } = req.query;
+  const { id } = req.user;
+
+  const where = {
+    user_id: Number(id),
+  };
+
+  if (search) {
+    where.OR = [
+      {
+        title: {
+          contains: search,
+        },
+      },
+      {
+        desc: {
+          contains: search,
+        },
+      },
+    ];
+  }
+
+  const response = await prisma.permissionRequest.findMany({
+    where,
+  });
+
+  // group by month of start_date
+  // result json { data: { month: 'Februari 2025', value: []}}
+  const grouped = response.reduce((acc, curr) => {
+    delete curr.user_id;
+    const date = new Date(curr.start_date);
+    const month = date.toLocaleString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+    acc[month] = acc[month] || [];
+    acc[month].push(curr);
+    return acc;
+  }, {});
+
+  const data = Object.entries(grouped).map(([month, value]) => {
+    return {
+      month: month.toLocaleString("id-ID", { month: "long", year: "numeric" }),
+      value: value.map((item) => {
+        let header = "";
+        if (item.type === "Permission") {
+          header = "Izin";
+        } else if (item.type === "Leave") {
+          header = "Cuti";
+        } else if (item.type === "Sickness") {
+          header = "Sakit";
+        }
+        return {
+          title: item.title,
+          header: "Permohonan Izin (" + header + ")",
+          desc: item.desc,
+          type: item.type,
+        start_date: new Date(item.start_date).toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }),
+        end_date: new Date(item.end_date).toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }),
+        date: new Date(item.created_at).getDate(),
+        day: new Date(item.created_at).toLocaleString("id-ID", {
+          weekday: "long",
+          }),
+          status: item.status,
+          reason: item.reason,
+          file: item.file,
+        };
+      }),
+    };
+  });
+
+  const total_sakit = response.filter(
+    (item) => item.type === "Sickness"
+  ).length;
+  const total_izin = response.filter(
+    (item) => item.type === "Permission"
+  ).length;
+  const total_cuti = response.filter((item) => item.type === "Leave").length;
+
+  return {
+    data,
+    total: response.length,
+    total_sakit,
+    total_izin,
+    total_cuti,
+  };
+};
 const getValidation = async (req) => {
   const { institution_id } = req.query;
   const { page = 1, limit = 10, search } = req.query;
@@ -217,8 +318,7 @@ const getValidation = async (req) => {
 
   where.user_id = {
     in: userIds,
-  }
-  
+  };
 
   if (search) {
     where.OR = [
@@ -253,12 +353,18 @@ const getValidation = async (req) => {
 
   const include = {
     user: true,
-  }
+  };
 
-  const response = await paginate(where, page, limit, "permissionRequest", include);
+  const response = await paginate(
+    where,
+    page,
+    limit,
+    "permissionRequest",
+    include
+  );
 
   return response;
-}
+};
 
 const getOne = async (req) => {
   const { id } = req.params;
@@ -304,4 +410,5 @@ module.exports = {
   getOne,
   destroy,
   getValidation,
+  getPermissionRequest,
 };

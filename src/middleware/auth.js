@@ -10,7 +10,7 @@ function authorize(roles = []) {
       try {
         const token = req.headers["authorization"];
         if (!token) {
-          return res.status(401).json(new Error("Akses tidak diizinkan!"));
+          return unauthorized("Akses tidak diizinkan!");
         }
         const bearerToken = token.split(" ")[1];
         const user = jwt.verify(bearerToken, process.env.JWT_SECRET_ACCESS);
@@ -24,7 +24,7 @@ function authorize(roles = []) {
             }
           }
           if (!valid) {
-            throw unauthorized("Akses tidak diizinkan!");
+            return unauthorized("Akses tidak diizinkan!");
           }
         }
 

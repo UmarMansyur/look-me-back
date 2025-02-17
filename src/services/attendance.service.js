@@ -6,6 +6,10 @@ const _ = require("lodash");
 const xlsx = require("node-xlsx");
 const Excel = require('exceljs');
 
+const deg2rad = (deg) => {
+  return deg * (Math.PI / 180);
+};
+
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
@@ -116,9 +120,53 @@ const calculateFaceSimilarity = (face1, face2, fileIndex) => {
   };
 };
 
+const myFace = async (req) => {
+  const { id } = req.user;
+
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: Number(id),
+    },
+  });
+  
+  if (!existingUser) {
+    return badRequest("User tidak ditemukan!");
+  }
+
+  return existingUser.description;
+}
+
+const saveFace = async (req) => {
+  const { id } = req.user;
+  const { data } = req.body;
+
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: Number(id),
+    },
+  });
+
+  if(!existingUser) {
+    return badRequest("User tidak ditemukan!");
+  }
+
+  let description = JSON.parse(data);
+
+
+
+  await prisma.user.update({
+    where: { id: Number(id) },
+    data: {
+      description: description.measurements,
+    },
+  });
+}
+
 const create = async (req) => {
   const { id } = req.user;
   const { lat, long, data } = req.body;
+
+
   const file = req.file;
 
   const existingUser = await prisma.user.findFirst({
@@ -138,11 +186,13 @@ const create = async (req) => {
     return badRequest("User tidak ditemukan!");
   }
 
-  if (!data || !data.measurements || data.measurements.length === 0) {
+  const faceInput = JSON.parse(data);
+
+  if (!faceInput || !faceInput.measurements || faceInput.measurements.length === 0) {
     return badRequest("Data tidak boleh kosong!");
   }
 
-  const fileData = JSON.parse(existingUser.description);
+  const fileData =existingUser.description;
 
   const distance = getDistance(
     existingUser.userInstitutions[0].institution.lat,
@@ -151,7 +201,9 @@ const create = async (req) => {
     long
   );
 
-  if (distance > 0.05) {
+  console.log(distance);
+
+  if (distance > 1) {
     return badRequest("Anda tidak berada di area kantor!");
   }
 
@@ -164,17 +216,17 @@ const create = async (req) => {
     },
   });
 
-  if (existingAttendance) {
+  if (existingAttendance.check_in && existingAttendance.check_out) {
     return badRequest("Anda sudah melakukan absensi hari ini!");
   }
 
   const results = [];
 
-  for (let i = 0; i < data.measurements.length; i++) {
-    const requestFace = data.measurements[i];
+  for (let i = 0; i < faceInput.measurements.length; i++) {
+    const requestFace = faceInput.measurements[i];
 
-    for (let j = 0; j < fileData.data.measurements.length; j++) {
-      const fileFace = fileData.data.measurements[j];
+    for (let j = 0; j < fileData.length; j++) {
+      const fileFace = fileData[j];
       const comparison = calculateFaceSimilarity(requestFace, fileFace, j);
       results.push({
         requestFaceIndex: i,
@@ -184,7 +236,7 @@ const create = async (req) => {
     }
   }
 
-  const bestMatches = data.measurements.map((_, index) => {
+  const bestMatches = faceInput.measurements.map((_, index) => {
     const matches = results.filter((r) => r.requestFaceIndex === index);
     const bestMatch = matches.reduce((best, current) =>
       current.similarity > best.similarity ? current : best
@@ -199,23 +251,25 @@ const create = async (req) => {
 
   const verificationResults = bestMatches.map((match) => {
     const thresholds = {
-      0: 98,
-      1: 98,
-      2: 98,
-      3: 98,
+      0: 80,
+      1: 80,
+      2: 80,
+      3: 80,
     };
 
     return {
       requestFaceIndex: match.requestFaceIndex,
       bestMatchFileIndex: match.bestMatchFileIndex,
       similarity: match.similarity,
-      verified: match.similarity >= thresholds[match.bestMatchFileIndex],
-      threshold: thresholds[match.bestMatchFileIndex],
+      verified: match.similarity >= 80,
+      threshold: 80,
     };
   });
 
+
   const verified =
     verificationResults.filter((result) => result.verified).length >= 4;
+
 
   if (!verified) {
     return badRequest(
@@ -223,36 +277,61 @@ const create = async (req) => {
     );
   }
 
-  const previousAttendance = await prisma.attendance.findFirst({
+  if(file) {
+    image = file.filename;
+  }
+
+  // ambil jam sekarang
+  const now = new Date();
+  const checkIn = new Date(now.setHours(now.getHours() + 7));
+  const checkOut = new Date(now.setHours(now.getHours() + 15));
+
+  const operating = await prisma.operatingHours.findFirst({
     where: {
-      user_id: Number(id),
-      created_at: {
-        gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        lt: new Date(),
-      },
+      institution_id: existingUser.userInstitutions[0].institution_id,
+      status: true,
     },
   });
 
-  if (!previousAttendance) {
-    await prisma.attendance.create({
-      data: {
-        user_id: Number(id),
-        lat,
-        long,
-        type: "Alpa",
-        image: "",
-        institution_id: existingUser.userInstitutions[0].institution_id,
-      },
-    });
+  if(!operating) {
+    return badRequest("Kantor tidak buka!");
+  }
+
+  
+  let timeCheckIn = "";
+  let timeCheckOut = "";
+
+  // Check if this is a check-in or check-out attempt
+  if (!existingAttendance || !existingAttendance.check_in) {
+    // This is a check-in attempt
+    if (now >= operating.start_time && now <= operating.late_tolerance) {
+      timeCheckIn = new Date();
+    } else if (now > operating.late_tolerance) {
+      timeCheckIn = new Date();
+    } else {
+      return badRequest("Belum waktunya check in!");
+    }
+  } else {
+    // This is a check-out attempt
+    if (now >= operating.end_time && now <= operating.early_tolerance) {
+      timeCheckOut = new Date();
+    } else if (now > operating.early_tolerance) {
+      timeCheckOut = new Date();
+    } else {
+      return badRequest("Belum waktunya check out!");
+    }
   }
 
   const attendance = await prisma.attendance.create({
     data: {
+      institution_id: existingUser.userInstitutions[0].institution_id,
       user_id: Number(id),
-      lat,
-      long,
+      lat: `${lat}`,
+      long: `${long}`,
+      check_in: timeCheckIn || null,
+      check_out: timeCheckOut || null,
       type: "Present",
-      image: file.filename,
+      images: file ? file.filename : "",
     },
   });
 
@@ -314,22 +393,24 @@ const reportAttendance = async (req) => {
     },
   });
 
-  const startDate = moment(`${year}-${month}-01`).toDate();
-  const endDate = moment(`${year}-${month}-01`).endOf("month").toDate();
+  const currentYear = year ? year : moment().year();
+
+  const startDate = new Date(currentYear, month - 1, 1);
+  const endDate = new Date(currentYear, month, 0);
 
   const listAttendance = await prisma.attendance.findMany({
     where: {
       user_id: {
-        in: listUser.map((user) => user.id),
+        in: listUser.map((user) => user.id)
       },
-      created_at: {
+      check_in: {
         gte: startDate,
-        lte: endDate,
-      },
+        lt: endDate
+      }
     },
     include: {
-      user: true,
-    },
+      user: true
+    }
   });
 
   const result = [];
@@ -340,6 +421,7 @@ const reportAttendance = async (req) => {
     AND YEAR(start_date) = ${year}
     AND MONTH(start_date) = ${month}
   `;
+
 
   listUser.forEach((user) => {
     const currentDate = moment(startDate);
@@ -359,7 +441,7 @@ const reportAttendance = async (req) => {
       let type = "";
 
       if (isHoliday) {
-        type = ""; // Empty string for holidays
+        type = "Libur"; // Empty string for holidays
       } else if(attendance && attendance.type === "Present") {
         type = "Hadir";
       } else if(attendance && attendance.type === "Izin") {
@@ -553,4 +635,6 @@ module.exports = {
   reportAttendance,
   exportAttendance,
   exportPDF,
-};
+  myFace,
+  saveFace,
+};  

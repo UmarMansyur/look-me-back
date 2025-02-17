@@ -195,6 +195,15 @@ const getOne = async (req) => {
   });
   return {
     ...data,
+    tanggal_created: new Date(data.created_at).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }),
+    created_at: new Date(data.created_at).toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
     thumbnail: data.sender?.thumbnail,
     username: data.sender?.username,
   }
